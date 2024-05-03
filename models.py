@@ -78,15 +78,15 @@ class AuthUserUserPermissions(models.Model):
 
 
 class CustomerMaster(models.Model):
-    cust_id = models.CharField(primary_key=True, max_length=4)
-    cust_name = models.CharField(max_length=50, blank=True, null=True)
-    cust_addr1 = models.CharField(max_length=30, blank=True, null=True)
-    cust_addr2 = models.CharField(max_length=30, blank=True, null=True)
-    cust_city = models.CharField(max_length=15, blank=True, null=True)
-    cust_st_code = models.IntegerField(blank=True, null=True)
-    cust_st_name = models.CharField(max_length=20, blank=True, null=True)
-    cust_pin = models.CharField(max_length=6, blank=True, null=True)
-    cust_gst_id = models.CharField(max_length=20, blank=True, null=True)
+    cust_id = models.CharField(primary_key=True, max_length=15)
+    cust_name = models.CharField(max_length=50)
+    cust_addr1 = models.CharField(max_length=50)
+    cust_addr2 = models.CharField(max_length=50)
+    cust_city = models.CharField(max_length=15)
+    cust_st_code = models.CharField(max_length=2)
+    cust_st_name = models.CharField(max_length=20)
+    cust_pin = models.CharField(max_length=6)
+    cust_gst_id = models.CharField(max_length=20)
 
     class Meta:
         managed = False
@@ -94,25 +94,27 @@ class CustomerMaster(models.Model):
 
 
 class CustomerPurchaseOrder(models.Model):
-    po_no = models.CharField(primary_key=True, max_length=20)  # The composite primary key (po_no, cust_id, prod_id) found, that is not supported. The first column is selected.
+    po_no = models.CharField(max_length=30)
     po_date = models.DateField(blank=True, null=True)
     po_validity = models.DateField(blank=True, null=True)
-    cust_id = models.CharField(max_length=4)
-    quote_id = models.CharField(max_length=4, blank=True, null=True)
-    receiver_id = models.CharField(max_length=4, blank=True, null=True)
-    consignee_id = models.CharField(max_length=4, blank=True, null=True)
-    prod_id = models.CharField(max_length=4)
-    pack_size = models.CharField(max_length=5, blank=True, null=True)
+    quote_id = models.CharField(max_length=15, blank=True, null=True)
+    cust_id = models.CharField(max_length=15)
+    consignee_id = models.CharField(max_length=15, blank=True, null=True)
+    po_sl_no = models.CharField(max_length=5, blank=True, null=True)
+    prod_id = models.CharField(max_length=30)
+    prod_desc = models.CharField(max_length=50, blank=True, null=True)
+    msrr = models.CharField(max_length=50, blank=True, null=True)
+    pack_size = models.CharField(max_length=10, blank=True, null=True)
     quantity = models.IntegerField(blank=True, null=True)
     staggered_delivery = models.IntegerField(blank=True, null=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=0, blank=True, null=True)
-    total_price = models.DecimalField(max_digits=10, decimal_places=0, blank=True, null=True)
     qty_sent = models.IntegerField(blank=True, null=True)
+    qty_bal = models.IntegerField(blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'customer_purchase_order'
-        unique_together = (('po_no', 'cust_id', 'prod_id'),)
+        unique_together = (('id', 'po_no', 'cust_id', 'prod_id'),)
 
 
 class DjangoAdminLog(models.Model):
@@ -232,17 +234,17 @@ class InwDc(models.Model):
 
 
 class OtwDc(models.Model):
-    mat_code = models.CharField(primary_key=True, max_length=3)  # The composite primary key (mat_code, gcn_no, po_no, prod_id) found, that is not supported. The first column is selected.
-    gcn_no = models.IntegerField()
-    gcn_date = models.CharField(max_length=15, blank=True, null=True)
-    po_no = models.CharField(max_length=20)
-    po_date = models.CharField(max_length=15, blank=True, null=True)
-    receiver_id = models.CharField(max_length=4, blank=True, null=True)
-    consignee_id = models.CharField(max_length=4, blank=True, null=True)
-    prod_id = models.CharField(max_length=20)
-    prod_name = models.CharField(max_length=50, blank=True, null=True)
+    gcn_no = models.CharField(primary_key=True, max_length=15)  # The composite primary key (gcn_no, po_no, prod_id) found, that is not supported. The first column is selected.
+    gcn_date = models.DateField(blank=True, null=True)
+    po_no = models.CharField(max_length=30)
+    po_date = models.DateField(blank=True, null=True)
+    cust_id = models.CharField(max_length=15, blank=True, null=True)
+    consignee_id = models.CharField(max_length=15, blank=True, null=True)
+    prod_id = models.CharField(max_length=30)
+    prod_desc = models.CharField(max_length=50, blank=True, null=True)
+    msrr = models.CharField(max_length=50, blank=True, null=True)
     qty_delivered = models.IntegerField(blank=True, null=True)
-    pack_size = models.CharField(max_length=5, blank=True, null=True)
+    pack_size = models.CharField(max_length=10, blank=True, null=True)
     unit_price = models.FloatField(blank=True, null=True)
     taxable_amt = models.FloatField(blank=True, null=True)
     cgst_price = models.FloatField(blank=True, null=True)
@@ -252,7 +254,7 @@ class OtwDc(models.Model):
     class Meta:
         managed = False
         db_table = 'otw_dc'
-        unique_together = (('mat_code', 'gcn_no', 'po_no', 'prod_id'),)
+        unique_together = (('gcn_no', 'po_no', 'prod_id'),)
 
 
 class PriceList(models.Model):
