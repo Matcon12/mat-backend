@@ -57,7 +57,9 @@ def submit_form(request):
       'productDetails': productDetails
     }
     
+    
     for i in range(0, len(productDetails)):
+      msrrResult = ", ".join(productDetails[i].get('additionalDesc'))
       CustomerPurchaseOrder.objects.create(
         po_no = formData.get('poNo'),
         po_date = formData.get('poDate'),
@@ -68,7 +70,7 @@ def submit_form(request):
         po_sl_no = productDetails[i].get('poSlNo'),
         prod_id = productDetails[i].get('prodId'),
         prod_desc = productDetails[i].get('prodDesc'),
-        msrr = productDetails[i].get('msrr'),
+        msrr = msrrResult,
         pack_size = productDetails[i].get('packSize'),
         quantity = productDetails[i].get('quantity'),
         staggered_delivery = productDetails[i].get('staggeredDelivery'),
@@ -77,7 +79,7 @@ def submit_form(request):
         qty_bal = productDetails[i].get('qtyBal')
       )
     
-    return JsonResponse({"message":"success"})
+    return JsonResponse({"message": msrrResult})
     # return JsonResponse(response_data)
   else:
     return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
