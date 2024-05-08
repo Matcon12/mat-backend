@@ -77,6 +77,29 @@ class AuthUserUserPermissions(models.Model):
         unique_together = (('user', 'permission'),)
 
 
+class CustPo(models.Model):
+    po_no = models.CharField(max_length=100, blank=True, null=True)
+    po_date = models.DateField(blank=True, null=True)
+    po_validity = models.DateField(blank=True, null=True)
+    quote_id = models.CharField(max_length=50, blank=True, null=True)
+    cust_id = models.CharField(max_length=30, blank=True, null=True)
+    consignee_id = models.CharField(max_length=30, blank=True, null=True)
+    po_sl_no = models.CharField(max_length=15, blank=True, null=True)
+    prod_id = models.CharField(max_length=50, blank=True, null=True)
+    prod_desc = models.CharField(max_length=100, blank=True, null=True)
+    msrr = models.CharField(max_length=100, blank=True, null=True)
+    pack_size = models.CharField(max_length=100, blank=True, null=True)
+    quantity = models.CharField(max_length=30, blank=True, null=True)
+    staggered_deliver = models.CharField(max_length=45, blank=True, null=True)
+    unit_price = models.CharField(max_length=20, blank=True, null=True)
+    qty_sent = models.CharField(max_length=15, blank=True, null=True)
+    qty_bal = models.CharField(max_length=15, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'cust_po'
+
+
 class CustomerMaster(models.Model):
     cust_id = models.CharField(primary_key=True, max_length=15)
     cust_name = models.CharField(max_length=50)
@@ -94,14 +117,14 @@ class CustomerMaster(models.Model):
 
 
 class CustomerPurchaseOrder(models.Model):
-    po_no = models.CharField(max_length=30)
+    po_no = models.CharField(max_length=50)
     po_date = models.DateField(blank=True, null=True)
     po_validity = models.DateField(blank=True, null=True)
     quote_id = models.CharField(max_length=15, blank=True, null=True)
-    cust_id = models.CharField(max_length=15)
+    cust_id = models.CharField(max_length=15, blank=True, null=True)
     consignee_id = models.CharField(max_length=15, blank=True, null=True)
     po_sl_no = models.CharField(max_length=5, blank=True, null=True)
-    prod_id = models.CharField(max_length=30)
+    prod_id = models.CharField(max_length=30, blank=True, null=True)
     prod_desc = models.CharField(max_length=50, blank=True, null=True)
     msrr = models.CharField(max_length=50, blank=True, null=True)
     pack_size = models.CharField(max_length=10, blank=True, null=True)
@@ -114,7 +137,7 @@ class CustomerPurchaseOrder(models.Model):
     class Meta:
         managed = False
         db_table = 'customer_purchase_order'
-        unique_together = (('id', 'po_no', 'cust_id', 'prod_id'),)
+        unique_together = (('id', 'po_no'),)
 
 
 class DjangoAdminLog(models.Model):
