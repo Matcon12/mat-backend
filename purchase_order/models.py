@@ -3,75 +3,56 @@ from django.db import models
 # Create your models here.
 
 class CustomerMaster(models.Model):
-    cust_id = models.CharField(primary_key=True, max_length=4)
-    cust_name = models.CharField(max_length=50, blank=True, null=True)
-    cust_addr1 = models.CharField(max_length=30, blank=True, null=True)
-    cust_addr2 = models.CharField(max_length=30, blank=True, null=True)
-    cust_city = models.CharField(max_length=15, blank=True, null=True)
-    cust_st_code = models.IntegerField(blank=True, null=True)
-    cust_st_name = models.CharField(max_length=20, blank=True, null=True)
-    cust_pin = models.CharField(max_length=6, blank=True, null=True)
-    cust_gst_id = models.CharField(max_length=20, blank=True, null=True)
+    cust_name = models.TextField(db_column='Cust_Name', blank=True, null=True)  # Field name made lowercase.
+    cust_id = models.TextField(db_column='Cust_ID', primary_key=True)  # Field name made lowercase.
+    cust_addr1 = models.TextField(db_column='Cust_addr1', blank=True, null=True)  # Field name made lowercase.
+    cust_addr2 = models.TextField(db_column='Cust_addr2', blank=True, null=True)  # Field name made lowercase.
+    cust_city = models.TextField(db_column='Cust_City', blank=True, null=True)  # Field name made lowercase.
+    cust_st_code = models.TextField(db_column='Cust_St_Code', blank=True, null=True)  # Field name made lowercase.
+    cust_st_name = models.TextField(db_column='Cust_St_Name', blank=True, null=True)  # Field name made lowercase.
+    cust_pin = models.TextField(db_column='Cust_PIN', blank=True, null=True)  # Field name made lowercase.
+    cust_gst_id = models.TextField(db_column='Cust_GST_ID', blank=True, null=True)  # Field name made lowercase.
+    phone_no = models.TextField(db_column='Phone_No', blank=True, null=True)  # Field name made lowercase.
+    email = models.TextField(db_column='Email', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
-        db_table = 'customer_master'
+        db_table = 'Customer_Master'
         
 class CustomerPurchaseOrder(models.Model):
-    po_no = models.CharField(max_length=30)
-    po_date = models.DateField(blank=True, null=True)
-    po_validity = models.DateField(blank=True, null=True)
-    quote_id = models.CharField(max_length=15, blank=True, null=True)
-    cust_id = models.CharField(max_length=15)
-    consignee_id = models.CharField(max_length=15, blank=True, null=True)
-    po_sl_no = models.CharField(max_length=5, blank=True, null=True)
-    prod_id = models.CharField(max_length=30)
-    prod_desc = models.CharField(max_length=50, blank=True, null=True)
-    msrr = models.CharField(max_length=50, blank=True, null=True)
-    pack_size = models.CharField(max_length=10, blank=True, null=True)
-    quantity = models.IntegerField(blank=True, null=True)
-    staggered_delivery = models.IntegerField(blank=True, null=True)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=0, blank=True, null=True)
-    qty_sent = models.IntegerField(blank=True, null=True)
-    qty_bal = models.IntegerField(blank=True, null=True)
+    slno = models.IntegerField(db_column='SlNo', primary_key=True)  # Field name made lowercase. The composite primary key (SlNo, PONo, Customer_ID, PO_Sl_No) found, that is not supported. The first column is selected.
+    pono = models.TextField(db_column='PONo')  # Field name made lowercase.
+    podate = models.TextField(db_column='PODate', blank=True, null=True)  # Field name made lowercase.
+    quote_id = models.TextField(db_column='Quote_ID', blank=True, null=True)  # Field name made lowercase.
+    quote_date = models.TextField(db_column='Quote_Date', blank=True, null=True)  # Field name made lowercase.
+    customer_id = models.TextField(db_column='Customer_ID')  # Field name made lowercase.
+    consignee_id = models.TextField(db_column='Consignee_ID', blank=True, null=True)  # Field name made lowercase.
+    po_sl_no = models.TextField(db_column='PO_Sl_No')  # Field name made lowercase.
+    prod_code = models.TextField(db_column='Prod_Code', blank=True, null=True)  # Field name made lowercase.
+    additional_desc = models.TextField(db_column='Additional_Desc', blank=True, null=True)  # Field name made lowercase.
+    pack_size = models.TextField(db_column='Pack_Size', blank=True, null=True)  # Field name made lowercase.
+    quantity = models.TextField(db_column='Quantity', blank=True, null=True)  # Field name made lowercase.
+    unit_price = models.TextField(db_column='Unit_Price', blank=True, null=True)  # Field name made lowercase.
+    uom = models.TextField(db_column='UOM', blank=True, null=True)  # Field name made lowercase.
+    total_price = models.TextField(db_column='Total_Price', blank=True, null=True)  # Field name made lowercase.
+    qty_balance = models.TextField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase.
+    qty_sent = models.TextField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase.
+    delivery_date = models.TextField(db_column='Delivery_Date', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
-        db_table = 'customer_purchase_order'
-        unique_together = (('id', 'po_no', 'cust_id', 'prod_id'),)
+        db_table = 'Customer_Purchase_Order'
+
         
 class SupplierProductMaster(models.Model):
-    prod_id = models.CharField(primary_key=True, max_length=30)  # The composite primary key (prod_id, supp_id) found, that is not supported. The first column is selected.
-    supp_id = models.CharField(max_length=4)
-    prod_desc = models.CharField(max_length=75, blank=True, null=True)
-    spec_id = models.CharField(max_length=4, blank=True, null=True)
-    pack_size = models.CharField(max_length=10, blank=True, null=True)
-    currency = models.CharField(max_length=4, blank=True, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=0, blank=True, null=True)
+    prod_id = models.TextField(primary_key=True)  # The composite primary key (prod_id, pack_size) found, that is not supported. The first column is selected.
+    supp_id = models.TextField(blank=True, null=True)
+    prod_desc = models.TextField(blank=True, null=True)
+    spec_id = models.TextField(blank=True, null=True)
+    pack_size = models.TextField(blank=True, null=True)
+    currency = models.TextField(blank=True, null=True)
+    price = models.IntegerField(blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'supplier_product_master'
-        unique_together = (('prod_id', 'supp_id'),)
-        
-class CustPo(models.Model):
-    po_no = models.CharField(max_length=100, blank=True, null=True)
-    po_date = models.DateField(blank=True, null=True)
-    po_validity = models.DateField(blank=True, null=True)
-    quote_id = models.CharField(max_length=50, blank=True, null=True)
-    cust_id = models.CharField(max_length=30, blank=True, null=True)
-    consignee_id = models.CharField(max_length=30, blank=True, null=True)
-    po_sl_no = models.CharField(max_length=15, blank=True, null=True)
-    prod_id = models.CharField(max_length=50, blank=True, null=True)
-    prod_desc = models.CharField(max_length=100, blank=True, null=True)
-    msrr = models.CharField(max_length=100, blank=True, null=True)
-    pack_size = models.CharField(max_length=100, blank=True, null=True)
-    quantity = models.CharField(max_length=30, blank=True, null=True)
-    staggered_deliver = models.CharField(max_length=45, blank=True, null=True)
-    unit_price = models.CharField(max_length=20, blank=True, null=True)
-    qty_sent = models.CharField(max_length=15, blank=True, null=True)
-    qty_bal = models.CharField(max_length=15, blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'cust_po'
