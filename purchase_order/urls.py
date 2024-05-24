@@ -15,4 +15,5 @@ urlpatterns = [
   path("updateCustomerDetails", views.update_customer_details, name="updateCustomerDetails"),
   path("addProductDetails", views.add_product_details, name="addProductDetails"),
   path("getProductDetails", views.get_product_details, name="getProductDetails"),
+  path("invoiceProcessing", views.invoice_processing, name="invoiceProcessing"),
 ]

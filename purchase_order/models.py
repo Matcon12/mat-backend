@@ -56,3 +56,47 @@ class SupplierProductMaster(models.Model):
     class Meta:
         managed = False
         db_table = 'supplier_product_master'
+
+class GstRates(models.Model):
+    cgst_rate = models.IntegerField(blank=True, null=True)
+    sgst_rate = models.IntegerField(blank=True, null=True)
+    igst_rate = models.IntegerField(blank=True, null=True)
+    fin_year = models.IntegerField(blank=True, null=True)
+    last_gcn_no = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'gst_rates'
+
+
+class GstStateCode(models.Model):
+    state_code = models.IntegerField(blank=True, null=True)
+    state_name = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'gst_state_code'
+        
+class OtwDc(models.Model):
+    sl_no = models.AutoField(primary_key=True)  # The composite primary key (sl_no, gcn_no, po_no, po_sl_no) found, that is not supported. The first column is selected.
+    gcn_no = models.TextField()
+    gcn_date = models.TextField(blank=True, null=True)
+    po_no = models.TextField()
+    po_date = models.TextField(blank=True, null=True)
+    cust_id = models.TextField(blank=True, null=True)
+    consignee_id = models.TextField(blank=True, null=True)
+    prod_id = models.TextField(blank=True, null=True)
+    po_sl_no = models.TextField()
+    prod_desc = models.TextField(blank=True, null=True)
+    additional_desc = models.TextField(blank=True, null=True)
+    qty_delivered = models.TextField(blank=True, null=True)
+    pack_size = models.TextField(blank=True, null=True)
+    unit_price = models.TextField(blank=True, null=True)
+    taxable_amt = models.TextField(blank=True, null=True)
+    cgst_price = models.TextField(blank=True, null=True)
+    sgst_price = models.TextField(blank=True, null=True)
+    igst_price = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'otw_dc'
