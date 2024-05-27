@@ -20,7 +20,7 @@ class CustomerMaster(models.Model):
         db_table = 'Customer_Master'
         
 class CustomerPurchaseOrder(models.Model):
-    slno = models.IntegerField(db_column='SlNo', primary_key=True)  # Field name made lowercase. The composite primary key (SlNo, PONo, Customer_ID, PO_Sl_No) found, that is not supported. The first column is selected.
+    slno = models.AutoField(db_column='SlNo', primary_key=True)  # Field name made lowercase. The composite primary key (SlNo, PONo, Customer_ID, PO_Sl_No) found, that is not supported. The first column is selected.
     pono = models.TextField(db_column='PONo')  # Field name made lowercase.
     podate = models.TextField(db_column='PODate', blank=True, null=True)  # Field name made lowercase.
     quote_id = models.TextField(db_column='Quote_ID', blank=True, null=True)  # Field name made lowercase.
@@ -29,14 +29,16 @@ class CustomerPurchaseOrder(models.Model):
     consignee_id = models.TextField(db_column='Consignee_ID', blank=True, null=True)  # Field name made lowercase.
     po_sl_no = models.TextField(db_column='PO_Sl_No')  # Field name made lowercase.
     prod_code = models.TextField(db_column='Prod_Code', blank=True, null=True)  # Field name made lowercase.
+    prod_desc = models.TextField(db_column='Prod_Desc', blank=True, null=True)  # Field name made lowercase.
     additional_desc = models.TextField(db_column='Additional_Desc', blank=True, null=True)  # Field name made lowercase.
+    omat = models.TextField(db_column='Omat', blank=True, null=True)  # Field name made lowercase.
     pack_size = models.TextField(db_column='Pack_Size', blank=True, null=True)  # Field name made lowercase.
     quantity = models.TextField(db_column='Quantity', blank=True, null=True)  # Field name made lowercase.
     unit_price = models.TextField(db_column='Unit_Price', blank=True, null=True)  # Field name made lowercase.
     uom = models.TextField(db_column='UOM', blank=True, null=True)  # Field name made lowercase.
     total_price = models.TextField(db_column='Total_Price', blank=True, null=True)  # Field name made lowercase.
-    qty_balance = models.TextField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase.
-    qty_sent = models.TextField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase.
+    qty_balance = models.IntegerField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase.
+    qty_sent = models.IntegerField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase.
     delivery_date = models.TextField(db_column='Delivery_Date', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:

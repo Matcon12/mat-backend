@@ -16,4 +16,6 @@ urlpatterns = [
   path("addProductDetails", views.add_product_details, name="addProductDetails"),
   path("getProductDetails", views.get_product_details, name="getProductDetails"),
   path("invoiceProcessing", views.invoice_processing, name="invoiceProcessing"),
+  path("invoiceGeneration", views.invoice_generation, name="invoiceGeneration"),
+  path("getInvoiceData", views.get_invoice_data, name="getInvoiceData")
 ]

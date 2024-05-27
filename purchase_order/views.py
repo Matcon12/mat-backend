@@ -1,3 +1,4 @@
+from django.forms import model_to_dict
 from django.http import HttpResponse
 from django.shortcuts import render
 from .models import SupplierProductMaster, CustomerMaster, CustomerPurchaseOrder, GstRates, GstStateCode, OtwDc
@@ -5,17 +6,55 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-from django.db.models import Max, F
+from django.db.models import Max, F, Sum
 from django.db import transaction, DatabaseError, connection
 import pandas as pd
 from django.shortcuts import get_object_or_404
 import datetime as d
+from babel.numbers import format_currency
 
 # Create your views here.
 def index(request):
   customer_purchase_order = CustomerPurchaseOrder.objects.all()
   return JsonResponse(list(customer_purchase_order.values()), safe=False)
   # return HttpResponse("Hello, world. You're at the purchase_order index.")
+
+def convert_rupees_to_words(amount):
+    ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", 
+            "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen","Seventeen", "Eighteen", "Nineteen"]
+    tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+    thousands = ["", "Thousand", "Lakh", "Crore"]
+    def convert_two_digits(num):
+        if num < 20:
+            return ones[num] + " "
+        else:
+            return tens[num // 10] + " " + ones[num % 10]
+    def convert_three_digits(num):
+        if num < 100:
+            return convert_two_digits(num)
+        else:
+            return ones[num // 100] + " Hundred " + convert_two_digits(num % 100)
+    result = ""    
+    amount = format(amount, ".2f")
+    RsPs = str(amount).split('.')
+    Rs = int(RsPs[0])
+    Ps = int(RsPs[1])
+    if Rs == 0:
+        result += "Zero "
+    else:
+        for i in range(4):
+            if i == 0 or i == 3:
+                chunk = Rs % 1000
+                Rs //= 1000
+            else:
+                chunk = Rs % 100
+                Rs //= 100
+            if chunk != 0:
+                result = convert_three_digits(chunk) + " " + thousands[i] + " " +result
+    if Ps > 0:
+        result = result.strip() + " and Paise " + convert_two_digits(Ps)        
+    result = "Rupees " + result.strip() + " Only"
+    return result.upper()
 
 @csrf_exempt
 def get_pack_size(request):
@@ -63,11 +102,11 @@ def submit_form(request):
             'productDetails': productDetails
         }
 
-        max_slno = CustomerPurchaseOrder.objects.aggregate(Max('slno'))['slno__max']
-        new_slno = max_slno + 1 if max_slno else 1  # Increment or start with 1
 
         for product in productDetails:
-            msrrResult = ", ".join(product.get('additionalDesc', []))
+            max_slno = CustomerPurchaseOrder.objects.aggregate(Max('slno'))['slno__max']
+            new_slno = max_slno + 1 if max_slno else 1  # Increment or start with 1
+            # msrrResult = ", ".join(product.get('additionalDesc', []))
             CustomerPurchaseOrder.objects.create(
                 slno=new_slno,
                 pono=formData.get('poNo'),
@@ -78,7 +117,9 @@ def submit_form(request):
                 consignee_id=formData.get('consigneeId'),
                 po_sl_no=product.get('poSlNo'),
                 prod_code=product.get('prodId'),
-                additional_desc=msrrResult,
+                prod_desc=product.get('productDesc'),
+                additional_desc=product.get('msrr'),
+                omat=product.get('omat'),
                 pack_size=product.get('packSize'),
                 quantity=product.get('quantity'),
                 unit_price=product.get('unitPrice'),
@@ -151,9 +192,6 @@ def add_customer_details(request):
             data = json.loads(request.body.decode('utf-8'))
             data = data.get('formData', {})
             
-            # Logging for debugging
-            print(data)
-            
             with transaction.atomic():
                 customer = CustomerMaster.objects.create(
                     cust_id=data.get('Cust_ID'),
@@ -215,7 +253,6 @@ def update_customer_details(request):
             data = request.body.decode('utf-8')
             result = json.loads(data)
             result = result.get('formData', {})
-            print(result)
             
             # Fetch the record to update
             record = CustomerMaster.objects.get(cust_id=result.get('cust_id'))
@@ -242,9 +279,6 @@ def add_product_details(request):
         try:
             data = json.loads(request.body.decode('utf-8'))
             data = data.get('formData', {})
-            
-            # Logging for debugging
-            print(data)
             
             with transaction.atomic():
                 customer = SupplierProductMaster.objects.create(
@@ -299,29 +333,28 @@ def get_product_details(request):
 def invoice_processing(request):
     data = json.loads(request.body.decode('utf-8'))
     
-    po_no = data.get('poNo')
-    cust_id = data.get('customerId')
-    new_cons_id = data.get('newConsigneeName')
+    po_no = data['formData'].get('poNo')
+    cust_id = data['formData'].get('customerId')
+    new_cons_id = data['formData'].get('newConsigneeName')
 
     po_sl_numbers = []
     qty_tobe_del = []
     
-    for item in data['items']:
-        po_sl_numbers.append(item['po_sl_no'])
+    for item in data['formData']['items']:
+        po_sl_numbers.append(item['poSlNo'])
         qty_tobe_del.append(item['quantity'])
     
     # Creating a dataframe with the relevant Inw Delivery records
     data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
     data_dict_inw = list(data_inw.values())
-    print(data_dict_inw)
     df_inw = pd.DataFrame(data_dict_inw)
-    # print("Columns",df_inw.columns)
 
     # Checking if the Inward DC is valid
     if df_inw.empty:
         print(f"Purchase Order No '{po_no}' does not exist in the database.")
-        return JsonResponse({"message": 'po_no does not exists'})
+        return JsonResponse({"message": 'po_no does not exists'},status=404)
 
+# notrequired
     # # Checking the validity if Open PO 
     # grn_date = df_inw.iloc[0]['grn_date']
     # po_no = df_inw.iloc[0]['po_no']
@@ -349,9 +382,7 @@ def invoice_processing(request):
 
     # Derive the new gcn_no for this invoice
     gcn_no = get_object_or_404(GstRates,id=1).last_gcn_no
-    # print("Prev Invoice No:", gcn_no)
     new_gcn_no = gcn_no + 1
-    # print("Current Invoice No:", new_gcn_no)
 
     # rework_dc = df_inw.iloc[0]['rework_dc']
     # if (rework_dc):
@@ -389,7 +420,6 @@ def invoice_processing(request):
             print("ERROR: Quantity information missing")
             return JsonResponse({"error": "Quantity information missing"})
 
-
     # Getting GST Rates from the table
     gst_instance = GstRates.objects.get()
     cgst_r = float(gst_instance.cgst_rate)/100
@@ -398,13 +428,10 @@ def invoice_processing(request):
     
     # Calculate the taxable_amt and GST for each items based on the State_Code
     df_inw["taxable_amt"] = df_inw["qty_tobe_del"].astype(float) * df_inw["unit_price"].astype(float)
-
-    # # Setting taxable_amt to zero for rejected items
-    # # df_inw["taxable_amt"] = 0.0 if ritem else df_inw["taxable_amt"]
     
     state_code = CustomerMaster.objects.filter(cust_id=cust_id).values_list('cust_st_code', flat=True).first()
-
-    if state_code == 29:
+    
+    if int(state_code) == 29:
         df_inw["cgst_price"] = cgst_r * (df_inw["taxable_amt"].astype(float))
         df_inw["sgst_price"] = sgst_r * (df_inw["taxable_amt"].astype(float))
         df_inw["igst_price"] = 0.0
@@ -417,8 +444,6 @@ def invoice_processing(request):
     df_inw["cgst_price"] = df_inw["cgst_price"].apply(lambda x: '{:.2f}'.format(x))
     df_inw["sgst_price"] = df_inw["sgst_price"].apply(lambda x: '{:.2f}'.format(x))
     df_inw["igst_price"] = df_inw["igst_price"].apply(lambda x: '{:.2f}'.format(x))
-    
-    
 
     # Updating the qty_delivered and qty_balance for Inward DC
     df_inw["qty_sent"] = df_inw["qty_sent"].astype(float) + df_inw["qty_tobe_del"].astype(float)
@@ -428,10 +453,10 @@ def invoice_processing(request):
     # Insert Outward_DC table with new records
     # Iterate over each row in the DataFrame
     for index, row in df_inw.iterrows():
-        max_slno = CustomerPurchaseOrder.objects.aggregate(Max('sl_no'))['sl_no__max']
+        max_slno = OtwDc.objects.aggregate(Max('sl_no'))['sl_no__max']
         new_slno = max_slno + 1 if max_slno else 1
         OtwDc_instance = OtwDc(
-            id = new_slno,
+            sl_no = new_slno,
             gcn_no   = row['gcn_no'],
             gcn_date = row['gcn_date'],
             po_no    = row['pono'],
@@ -439,6 +464,7 @@ def invoice_processing(request):
             consignee_id = row['consignee_id'],
             po_sl_no = row['po_sl_no'],
             prod_id = row['prod_code'],
+            prod_desc = row['prod_desc'],
             additional_desc = row['additional_desc'],
             qty_delivered = row['qty_tobe_del'],
             pack_size = row['pack_size'],
@@ -452,30 +478,34 @@ def invoice_processing(request):
         # Save the instance to the database
         OtwDc_instance.save()
 
-    # # Update Inward_DC table with new qty_delivered & qty_balance
+    # Update Inward_DC table with new qty_delivered & qty_balance
     # for index, row in df_inw.iterrows():
-    #     try:
-    #         # Retrieve the record from the database table
-    #         record = CustomerPurchaseOrder.objects.get(
-    #             cust_id = row['cust_id'],
-    #             grn_no  = row['grn_no'],
-    #             po_sl_no= row['po_sl_no']
-    #         )
+        try:
+            # Retrieve the record from the database table
+            record = CustomerPurchaseOrder.objects.get(
+                customer_id = row['customer_id'],
+                pono   = row['pono'],
+                po_sl_no= row['po_sl_no']
+            )
             
-    #         # Update the record
-    #         record.qty_delivered = F('qty_delivered') + row['qty_tobe_del']
-    #         record.qty_balance   = F('qty_balance') - row['qty_tobe_del']
-    #         record.save()
+            # Update the record
+            # record.qty_balance = F('qty_balance') - row['qty_tobe_del']
+            # record.qty_sent = F('qty_sent') + row['qty_tobe_del']
+            record.qty_balance = int(record.qty_balance) - int(row['qty_tobe_del'])
+            record.qty_sent = int(record.qty_sent) + int(row["qty_tobe_del"])
+
+            # record.save(update_fields=['qty_balance', 'qty_sent'])
+            record.save()
             
-    #     except ObjectDoesNotExist:
-    #         # If the record doesn't exist, raise an error
-    #         raise Exception(f"Record with cust_id={row['cust_id']}, po_sl_no={row['po_sl_no']} does not exist.")
-    #         return
+        except ObjectDoesNotExist:
+            # If the record doesn't exist, raise an error
+            raise Exception(f"Record with cust_id={row['customer_id']}, po_sl_no={row['po_sl_no']} does not exist.")
+            return
 
     # # Update PO table with new qty_sent values
     # for index, row in df_inw.iterrows():
     #     try:
-    #         # Retrieve the record from the database table
+    #         # Retrieve the record from the database table     
     #         record = CustomerPurchaseOrder.objects.get(
     #             cust_id = row['cust_id'],
     #             po_no   = row['po_no'],
@@ -491,13 +521,114 @@ def invoice_processing(request):
     #         raise Exception(f"Record with cust_id={row['cust_id']}, po_no={row['po_no']}, po_sl_no={row['po_sl_no']} does not exist.")
     #         return
     
-    # # Update the last_gcn_no in mat_company table
-    # GstRates.objects.filter(id=1).update(last_gcn_no = new_gcn_no)
+    # Update the last_gcn_no in mat_company table
+    GstRates.objects.filter(id=1).update(last_gcn_no = new_gcn_no)
 
-    # # Returning with success message
-    # response_data = {'message': 'success','gcn_no': gcn_num, }
-    # print(type(response_data))
-    # return response_data 
+    # Returning with success message 
+    return JsonResponse({"success": True, "gcn_no": new_gcn_no})
+
+@csrf_exempt
+def invoice_generation(request):
+    gcn_no = request.GET.get("gcn_no")
+    # Derive the complete gcn_no for this invoice
+    fin_year = int(get_object_or_404(GstRates, id=1).fin_year)
+    f_year=fin_year+1
+    fyear=str(f_year)
+    fyear=fyear[2:]
+    gcn_no = get_object_or_404(GstRates,id=1).last_gcn_no
+    gcn_num = (str(gcn_no).zfill(3)+ "/" + str(fin_year)+"-"+str(fyear))
+
+    #get data from otw_dc table
+    otwdc_values = OtwDc.objects.filter(gcn_no=gcn_num)
     
+    def model_to_dic(instance):
+        return {
+            'sl_no': instance.sl_no,
+            'gcn_no': instance.gcn_no,
+            'gcn_date': str(instance.gcn_date),  # Convert date to string
+            'po_no': instance.po_no,
+            'po_date': str(instance.po_date),  # Convert date to string
+            'cust_id': instance.cust_id,
+            'consignee_id': instance.consignee_id,
+            'prod_id': instance.prod_id,
+            'po_sl_no': instance.po_sl_no,
+            'prod_desc': instance.prod_desc,
+            'additional_desc': instance.additional_desc,
+            'qty_delivered': instance.qty_delivered,
+            'pack_size': instance.pack_size,
+            'unit_price': instance.unit_price,
+            'taxable_amt': instance.taxable_amt,
+            'cgst_price': instance.cgst_price,
+            'sgst_price': instance.sgst_price,
+            'igst_price': instance.igst_price,
+        }
+
+    otwdc_result = [model_to_dic(otwdc_value) for otwdc_value in otwdc_values]
+
+    # datas required for the potable
     
-    return JsonResponse({"success": True})
+    odc = OtwDc.objects.filter(gcn_no=gcn_num)
+    odc1 = OtwDc.objects.filter(gcn_no=gcn_num)[0]
+    
+    r_id = odc1.cust_id
+    #r_id = odc1.receiver_id.cust_id
+    r = CustomerMaster.objects.get(cust_id=r_id)
+    c_id = odc1.consignee_id
+    c = CustomerMaster.objects.get(cust_id=c_id)
+    gr = get_object_or_404(GstRates,id=1)
+
+    total_qty = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_qty=Sum('qty_delivered'))['total_qty']
+    total_taxable_value =OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_taxable_value=Sum('taxable_amt'))['total_taxable_value']
+    total_cgst = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_cgst=Sum('cgst_price'))['total_cgst']
+    total_sgst = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_sgst=Sum('sgst_price'))['total_sgst']
+    total_igst = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_igst=Sum('igst_price'))['total_igst']
+
+    
+    if total_taxable_value is None:
+        total_taxable_value = 0
+    if total_cgst is None:
+        total_cgst = 0
+    if total_sgst is None:
+        total_sgst = 0
+    if total_igst is None:
+        total_igst = 0
+
+    grand_total= round(float('{:.2f}'.format(total_taxable_value+total_cgst+total_sgst+total_igst)))
+    gt=format_currency(grand_total, 'INR', locale='en_IN')
+    aw = convert_rupees_to_words(grand_total) 
+    
+    odc_dicts = [model_to_dict(item) for item in odc]
+    context = {
+        'odc': odc_dicts,
+        'r': model_to_dict(r),
+        'c': model_to_dict(c),
+        'gr': model_to_dict(gr),
+        'odc1': model_to_dict(odc1),
+        'amount' : aw,
+        'total_taxable_value':"{:.2f}".format(total_taxable_value),
+        'total_cgst':"{:.2f}".format(total_cgst),
+        'total_sgst':"{:.2f}".format(total_sgst),
+        'total_igst':"{:.2f}".format(total_igst),
+        'gt':gt,
+        'total_qty':total_qty,  
+    }
+    # return context
+    # return render(request, 'print_invoice.html', context)
+    return JsonResponse({"message": "success", "context": context}, safe=False)
+
+
+def get_invoice_data(request):
+    if request.method == 'GET':
+        try:
+            po_no = request.GET.get("poNo")
+            if po_no:
+                result = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
+                cust_id = result.customer_id
+                consignee_id = result.consignee_id
+                return JsonResponse({"success": True, "cust_id": cust_id, 'consignee_id': consignee_id})
+            else:
+                return JsonResponse({"error": "po_no parameter is missing"}, status=400)
+        except ObjectDoesNotExist:
+            return JsonResponse('object does not exist', status=400)
+    else:
+        return JsonResponse({"Error": "Only get requests are allowed"}, status=400)
