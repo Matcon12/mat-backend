@@ -7,7 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.homepage),
     path('search/', include('invoice.urls')),
-    path('purchase_order/', include('purchase_order.urls'))
+    path('purchase_order/', include('purchase_order.urls')),
 ]
 
 urlpatterns += staticfiles_urlpatterns()    

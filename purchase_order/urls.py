@@ -15,7 +15,12 @@ urlpatterns = [
   path("updateCustomerDetails", views.update_customer_details, name="updateCustomerDetails"),
   path("addProductDetails", views.add_product_details, name="addProductDetails"),
   path("getProductDetails", views.get_product_details, name="getProductDetails"),
+  path("updateProductDetails", views.update_product_details, name="updateProductDetails"),
   path("invoiceProcessing", views.invoice_processing, name="invoiceProcessing"),
   path("invoiceGeneration", views.invoice_generation, name="invoiceGeneration"),
-  path("getInvoiceData", views.get_invoice_data, name="getInvoiceData")
+  path("getInvoiceData", views.get_invoice_data, name="getInvoiceData"),
+  path("signup", views.signup, name="signup"),
+  path("login", views.login, name="login"),
+  path("test_token", views.test_token, name="test_token"),
+  path("logout", views.logout, name="logout")
 ]

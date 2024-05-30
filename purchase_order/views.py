@@ -1,6 +1,13 @@
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+
 from django.forms import model_to_dict
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from .models import SupplierProductMaster, CustomerMaster, CustomerPurchaseOrder, GstRates, GstStateCode, OtwDc
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
@@ -9,9 +16,12 @@ import json
 from django.db.models import Max, F, Sum
 from django.db import transaction, DatabaseError, connection
 import pandas as pd
-from django.shortcuts import get_object_or_404
 import datetime as d
 from babel.numbers import format_currency
+from django.contrib.auth.models import User
+from rest_framework.authtoken.models import Token
+
+from .serializers import UserSerializer
 
 # Create your views here.
 def index(request):
@@ -311,23 +321,47 @@ def get_product_details(request):
          if prod_id:
             result = SupplierProductMaster.objects.get(prod_id=prod_id)
             return JsonResponse({
-               'cust_name': result.cust_name,
-               'cust_addr1': result.cust_addr1,
-               'cust_addr2': result.cust_addr2,
-               'cust_city': result.cust_city,
-               'cust_st_code': result.cust_st_code,
-               'cust_st_name': result.cust_st_name,
-               'cust_pin': result.cust_pin,
-               'cust_gst_id': result.cust_gst_id,
-               'phone_no': result.phone_no,
-               'email': result.email,
+                "prod_id": result.prod_id,
+                "supp_id": result.supp_id,
+                "prod_desc": result.prod_desc,
+                "spec_id": result.spec_id,
+                "pack_size": result.pack_size,
+                "currency": result.currency,
+                "price": result.price
             })
          else:
-            return JsonResponse({'error': 'cust_id parameter is missing'}, status=400)
+            return JsonResponse({'error': 'prod_id parameter is missing'}, status=400)
       except ObjectDoesNotExist:
          return JsonResponse({'customer_name': ''})
    else: 
       return JsonResponse({"error: Only GET requests are allowed"}, status=405)
+   
+@csrf_exempt
+def update_product_details(request):
+    if request.method == 'PUT':
+        try:
+            data = request.body.decode('utf-8')
+            result = json.loads(data)
+            result = result.get('formData', {})
+            
+            # Fetch the record to update
+            record = SupplierProductMaster.objects.get(prod_id=result.get('prod_id'))
+            # Update the record with new values from searchData
+            for key, value in result.items():
+                if hasattr(record, key):
+                    setattr(record, key, value)
+                else:
+                    print(f"Invalid key: {key}")
+            
+            record.save()
+            
+            return JsonResponse({'success': True})
+        except SupplierProductMaster.DoesNotExist:
+            return JsonResponse({'error': 'Record not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+       return JsonResponse({"error: Only PUT requests are allowed"}, status=405)
     
 @csrf_exempt
 def invoice_processing(request):
@@ -392,7 +426,7 @@ def invoice_processing(request):
     gcn_num = (str(new_gcn_no).zfill(3)+ "/" + str(fin_year)+"-"+str(fyear))
         
     current_date = current
-    date = str(current_date.strftime('%Y-%m-%d'))
+    date = str(current_date.strftime('%d-%m-%Y'))
 
     # Populating the columns with values for updating the Outward_Delivery Table
     df_inw.rename(columns={"id": "matcode", "cust_id_id": "cust_id"}, inplace=True)
@@ -415,10 +449,10 @@ def invoice_processing(request):
         if qty_tobe_del is not None and qty_balance is not None and quantity is not None:
             if (int(qty_tobe_del) > int(qty_balance)) or (int(qty_tobe_del) > int(quantity)):
                 print("ERROR: Insufficient Quantity")
-                return JsonResponse({"error": "Insufficient Quantity"})
+                return JsonResponse({"error": "Insufficient Quantity"}, status=500)
         else:
             print("ERROR: Quantity information missing")
-            return JsonResponse({"error": "Quantity information missing"})
+            return JsonResponse({"error": "Quantity information missing"}, status=404)
 
     # Getting GST Rates from the table
     gst_instance = GstRates.objects.get()
@@ -610,7 +644,7 @@ def invoice_generation(request):
         'total_sgst':"{:.2f}".format(total_sgst),
         'total_igst':"{:.2f}".format(total_igst),
         'gt':gt,
-        'total_qty':total_qty,  
+        'total_qty':total_qty
     }
     # return context
     # return render(request, 'print_invoice.html', context)
@@ -632,3 +666,38 @@ def get_invoice_data(request):
             return JsonResponse('object does not exist', status=400)
     else:
         return JsonResponse({"Error": "Only get requests are allowed"}, status=400)
+
+@api_view(['POST'])
+def signup(request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        user = User.objects.get(username=request.data['username'])
+        user.set_password(request.data['password'])
+        user.save()
+        token = Token.objects.create(user=user)
+        return Response({'token': token.key, 'user': serializer.data})
+    return Response(serializer.errors, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def login(request):
+    user = get_object_or_404(User, username=request.data['username'])
+    if not user.check_password(request.data['password']):
+        return Response("missing user", status=status.HTTP_404_NOT_FOUND)
+    token, created = Token.objects.get_or_create(user=user)
+    serializer = UserSerializer(user)
+    return Response({'token': token.key, 'user': serializer.data})
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def test_token(request):
+    return Response("passed!")
+
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication, TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def logout(request):
+    # Delete the token
+    request.user.auth_token.delete()
+    return Response("Logged out successfully!")
