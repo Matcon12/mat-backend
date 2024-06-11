@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    image: app:mat-backend
+    container_name: mat-backend-container
+    environment:
+      - DJANGO_DEBUG=1
