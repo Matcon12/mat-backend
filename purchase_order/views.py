@@ -667,6 +667,16 @@ def get_invoice_data(request):
     else:
         return JsonResponse({"Error": "Only get requests are allowed"}, status=400)
 
+@api_view(["GET"])
+def get_state_data(request):
+    try:
+        print('entered')
+        state_data = GstStateCode.objects.all().values()
+        return JsonResponse({"success": True, "state_data": list(state_data)})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+
+
 @api_view(['POST'])
 def signup(request):
     serializer = UserSerializer(data=request.data)

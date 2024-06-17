@@ -72,7 +72,7 @@ class GstRates(models.Model):
 
 
 class GstStateCode(models.Model):
-    state_code = models.IntegerField(blank=True, null=True)
+    state_code = models.AutoField(primary_key=True)
     state_name = models.TextField(blank=True, null=True)
 
     class Meta:
