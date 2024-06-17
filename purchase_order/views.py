@@ -84,7 +84,7 @@ def get_pack_size(request):
     else:
         return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)  # Update error message
 
-def get_customer_details(request):
+def get_customer_detail(request):
   if request.method == 'GET':
     try:
       cust_id = request.GET.get('customerId')
@@ -231,7 +231,7 @@ def add_customer_details(request):
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
     
-def get_customer_data(request):
+def get_customer_details(request):
    if request.method =='GET':
       try:
          cust_id = request.GET.get('cust_id')
@@ -655,6 +655,7 @@ def get_invoice_data(request):
     if request.method == 'GET':
         try:
             po_no = request.GET.get("poNo")
+            print(po_no)    
             if po_no:
                 result = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
                 cust_id = result.customer_id
@@ -676,6 +677,33 @@ def get_state_data(request):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
 
+@api_view(["GET"])
+def get_customer_data(request):
+    try:
+        print('entered')
+        state_data = CustomerMaster.objects.all().values()
+        return JsonResponse({"success": True, "customerData": list(state_data)})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+    
+@api_view(["GET"])
+def get_purchase_order(request):
+    try:
+        print('entered')
+        state_data = CustomerPurchaseOrder.objects.all().values()
+        return JsonResponse({"success": True, "purchaseOrder": list(state_data)})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+    
+@api_view(["GET"])
+def get_product_data(request):
+    try:
+        print('entered')
+        product_data = SupplierProductMaster.objects.all().values()
+        return JsonResponse({"success": True, "products": list(product_data)})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+    
 
 @api_view(['POST'])
 def signup(request):
