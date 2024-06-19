@@ -130,6 +130,7 @@ def submit_form(request):
                 prod_desc=product.get('productDesc'),
                 additional_desc=product.get('msrr'),
                 omat=product.get('omat'),
+                hsn_sac=product.get('hsn_sac'),
                 pack_size=product.get('packSize'),
                 quantity=product.get('quantity'),
                 unit_price=product.get('unitPrice'),
@@ -366,21 +367,29 @@ def update_product_details(request):
 @csrf_exempt
 def invoice_processing(request):
     data = json.loads(request.body.decode('utf-8'))
-    
-    po_no = data['formData'].get('poNo')
+
+    po_no = data['formData'].get('poNo').get('poNo')
     cust_id = data['formData'].get('customerId')
     new_cons_id = data['formData'].get('newConsigneeName')
+    contact_name = data['formData'].get('contactName')
 
     po_sl_numbers = []
     qty_tobe_del = []
-    
+    hsn = []
+    batch = []
+    coc = []
+
     for item in data['formData']['items']:
+    # for item in data['items']:
         po_sl_numbers.append(item['poSlNo'])
         qty_tobe_del.append(item['quantity'])
+        hsn.append(item['hsnSac'])
+        batch.append(item['batch'])
+        coc.append(item['coc'])
     
     # Creating a dataframe with the relevant Inw Delivery records
     data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
-    data_dict_inw = list(data_inw.values())
+    data_dict_inw = list(data_inw.values()) 
     df_inw = pd.DataFrame(data_dict_inw)
 
     # Checking if the Inward DC is valid
@@ -487,6 +496,7 @@ def invoice_processing(request):
     # Insert Outward_DC table with new records
     # Iterate over each row in the DataFrame
     for index, row in df_inw.iterrows():
+        print(hsn[index], batch[index], coc[index])
         max_slno = OtwDc.objects.aggregate(Max('sl_no'))['sl_no__max']
         new_slno = max_slno + 1 if max_slno else 1
         OtwDc_instance = OtwDc(
@@ -500,6 +510,7 @@ def invoice_processing(request):
             prod_id = row['prod_code'],
             prod_desc = row['prod_desc'],
             additional_desc = row['additional_desc'],
+            omat = row['omat'],
             qty_delivered = row['qty_tobe_del'],
             pack_size = row['pack_size'],
             unit_price = row['unit_price'],
@@ -507,7 +518,11 @@ def invoice_processing(request):
             cgst_price = row['cgst_price'],
             sgst_price = row['sgst_price'],
             igst_price = row['igst_price'],
-            cust_id = row['cust_id']
+            cust_id = row['cust_id'],
+            hsn_sac = hsn[index],
+            batch = batch[index],
+            coc = coc[index],
+            contact_name = contact_name
         )
         # Save the instance to the database
         OtwDc_instance.save()
@@ -563,104 +578,106 @@ def invoice_processing(request):
 
 @csrf_exempt
 def invoice_generation(request):
-    gcn_no = request.GET.get("gcn_no")
-    # Derive the complete gcn_no for this invoice
-    fin_year = int(get_object_or_404(GstRates, id=1).fin_year)
-    f_year=fin_year+1
-    fyear=str(f_year)
-    fyear=fyear[2:]
-    gcn_no = get_object_or_404(GstRates,id=1).last_gcn_no
-    gcn_num = (str(gcn_no).zfill(3)+ "/" + str(fin_year)+"-"+str(fyear))
+    if request.method == "GET":
+        gcn_no = request.GET.get("gcn_no")
+        if not gcn_no:
+            return JsonResponse({"error": "GCN number is required"}, status=400)
 
-    #get data from otw_dc table
-    otwdc_values = OtwDc.objects.filter(gcn_no=gcn_num)
-    
-    def model_to_dic(instance):
-        return {
-            'sl_no': instance.sl_no,
-            'gcn_no': instance.gcn_no,
-            'gcn_date': str(instance.gcn_date),  # Convert date to string
-            'po_no': instance.po_no,
-            'po_date': str(instance.po_date),  # Convert date to string
-            'cust_id': instance.cust_id,
-            'consignee_id': instance.consignee_id,
-            'prod_id': instance.prod_id,
-            'po_sl_no': instance.po_sl_no,
-            'prod_desc': instance.prod_desc,
-            'additional_desc': instance.additional_desc,
-            'qty_delivered': instance.qty_delivered,
-            'pack_size': instance.pack_size,
-            'unit_price': instance.unit_price,
-            'taxable_amt': instance.taxable_amt,
-            'cgst_price': instance.cgst_price,
-            'sgst_price': instance.sgst_price,
-            'igst_price': instance.igst_price,
+        # Derive the complete gcn_no for this invoice
+        gst_rate = get_object_or_404(GstRates, id=1)
+        fin_year = int(gst_rate.fin_year)
+        f_year = fin_year + 1
+        fyear = str(f_year)[2:]
+        gcn_no = gst_rate.last_gcn_no
+        gcn_num = f"{str(gcn_no).zfill(3)}/{fin_year}-{fyear}"
+
+        # Get data from otw_dc table
+        otwdc_values = OtwDc.objects.filter(gcn_no=gcn_num)
+        
+        if not otwdc_values.exists():
+            return JsonResponse({"error": "No records found for the provided GCN number"}, status=404)
+
+        def model_to_dic(instance):
+            return {
+                'sl_no': instance.sl_no,
+                'gcn_no': instance.gcn_no,
+                'gcn_date': str(instance.gcn_date),  # Convert date to string
+                'po_no': instance.po_no,
+                'po_date': str(instance.po_date),  # Convert date to string
+                'cust_id': instance.cust_id,
+                'consignee_id': instance.consignee_id,
+                'prod_id': instance.prod_id,
+                'po_sl_no': instance.po_sl_no,
+                'prod_desc': instance.prod_desc,
+                'additional_desc': instance.additional_desc,
+                'omat': instance.omat,
+                'hsn': instance.hsn_sac,
+                'batch': instance.batch,
+                'coc': instance.coc,
+                'qty_delivered': instance.qty_delivered,
+                'pack_size': instance.pack_size,
+                'unit_price': instance.unit_price,
+                'taxable_amt': instance.taxable_amt,
+                'cgst_price': instance.cgst_price,
+                'sgst_price': instance.sgst_price,
+                'igst_price': instance.igst_price,
+                "contact_name": instance.contact_name
+            }
+
+        otwdc_result = [model_to_dic(otwdc_value) for otwdc_value in otwdc_values]
+
+        odc1 = otwdc_values.first()
+        
+        r = get_object_or_404(CustomerMaster, cust_id=odc1.cust_id)
+        c = get_object_or_404(CustomerMaster, cust_id=odc1.consignee_id)
+        
+        total_qty = otwdc_values.aggregate(total_qty=Sum('qty_delivered'))['total_qty'] or 0
+        total_taxable_value = otwdc_values.aggregate(total_taxable_value=Sum('taxable_amt'))['total_taxable_value'] or 0
+        total_cgst = otwdc_values.aggregate(total_cgst=Sum('cgst_price'))['total_cgst'] or 0
+        total_sgst = otwdc_values.aggregate(total_sgst=Sum('sgst_price'))['total_sgst'] or 0
+        total_igst = otwdc_values.aggregate(total_igst=Sum('igst_price'))['total_igst'] or 0
+
+        grand_total = round(total_taxable_value + total_cgst + total_sgst + total_igst)
+        gt = format_currency(grand_total, 'INR', locale='en_IN')
+        aw = convert_rupees_to_words(grand_total)
+
+        context = {
+            'odc': otwdc_result,
+            'r': model_to_dict(r),
+            'c': model_to_dict(c),
+            'gr': model_to_dict(gst_rate),
+            'odc1': model_to_dict(odc1),
+            'amount': aw,
+            'total_taxable_value': "{:.2f}".format(total_taxable_value),
+            'total_cgst': "{:.2f}".format(total_cgst),
+            'total_sgst': "{:.2f}".format(total_sgst),
+            'total_igst': "{:.2f}".format(total_igst),
+            'gt': gt,
+            'total_qty': total_qty
         }
-
-    otwdc_result = [model_to_dic(otwdc_value) for otwdc_value in otwdc_values]
-
-    # datas required for the potable
-    
-    odc = OtwDc.objects.filter(gcn_no=gcn_num)
-    odc1 = OtwDc.objects.filter(gcn_no=gcn_num)[0]
-    
-    r_id = odc1.cust_id
-    #r_id = odc1.receiver_id.cust_id
-    r = CustomerMaster.objects.get(cust_id=r_id)
-    c_id = odc1.consignee_id
-    c = CustomerMaster.objects.get(cust_id=c_id)
-    gr = get_object_or_404(GstRates,id=1)
-
-    total_qty = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_qty=Sum('qty_delivered'))['total_qty']
-    total_taxable_value =OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_taxable_value=Sum('taxable_amt'))['total_taxable_value']
-    total_cgst = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_cgst=Sum('cgst_price'))['total_cgst']
-    total_sgst = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_sgst=Sum('sgst_price'))['total_sgst']
-    total_igst = OtwDc.objects.filter(gcn_no=gcn_num).aggregate(total_igst=Sum('igst_price'))['total_igst']
-
-    
-    if total_taxable_value is None:
-        total_taxable_value = 0
-    if total_cgst is None:
-        total_cgst = 0
-    if total_sgst is None:
-        total_sgst = 0
-    if total_igst is None:
-        total_igst = 0
-
-    grand_total= round(float('{:.2f}'.format(total_taxable_value+total_cgst+total_sgst+total_igst)))
-    gt=format_currency(grand_total, 'INR', locale='en_IN')
-    aw = convert_rupees_to_words(grand_total) 
-    
-    odc_dicts = [model_to_dict(item) for item in odc]
-    context = {
-        'odc': odc_dicts,
-        'r': model_to_dict(r),
-        'c': model_to_dict(c),
-        'gr': model_to_dict(gr),
-        'odc1': model_to_dict(odc1),
-        'amount' : aw,
-        'total_taxable_value':"{:.2f}".format(total_taxable_value),
-        'total_cgst':"{:.2f}".format(total_cgst),
-        'total_sgst':"{:.2f}".format(total_sgst),
-        'total_igst':"{:.2f}".format(total_igst),
-        'gt':gt,
-        'total_qty':total_qty
-    }
-    # return context
-    # return render(request, 'print_invoice.html', context)
-    return JsonResponse({"message": "success", "context": context}, safe=False)
-
+        print(context)
+        return JsonResponse({"message": "success", "context": context}, safe=False)
+    else:
+        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
 
 def get_invoice_data(request):
-    if request.method == 'GET':
+    if request.method == 'GET': 
         try:
             po_no = request.GET.get("poNo")
             print(po_no)    
             if po_no:
                 result = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
+                contact = CustomerMaster.objects.filter(cust_id=result.customer_id)
+                print(contact.values()[0].get('contact_name_1'))
+                
+                contact = [
+                    contact[0].contact_name_1,
+                    contact[0].contact_name_2
+                ]
+                print('contact: ', contact)
                 cust_id = result.customer_id
                 consignee_id = result.consignee_id
-                return JsonResponse({"success": True, "cust_id": cust_id, 'consignee_id': consignee_id})
+                return JsonResponse({"success": True, "cust_id": cust_id, 'consignee_id': consignee_id, 'contact': contact})
             else:
                 return JsonResponse({"error": "po_no parameter is missing"}, status=400)
         except ObjectDoesNotExist:

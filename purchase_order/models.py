@@ -12,15 +12,19 @@ class CustomerMaster(models.Model):
     cust_st_name = models.TextField(db_column='Cust_St_Name', blank=True, null=True)  # Field name made lowercase.
     cust_pin = models.TextField(db_column='Cust_PIN', blank=True, null=True)  # Field name made lowercase.
     cust_gst_id = models.TextField(db_column='Cust_GST_ID', blank=True, null=True)  # Field name made lowercase.
-    phone_no = models.TextField(db_column='Phone_No', blank=True, null=True)  # Field name made lowercase.
-    email = models.TextField(db_column='Email', blank=True, null=True)  # Field name made lowercase.
+    contact_name_1 = models.TextField(db_column='Contact_Name_1', blank=True, null=True)  # Field name made lowercase.
+    contact_phone_1 = models.TextField(db_column='Contact_Phone_1', blank=True, null=True)  # Field name made lowercase.
+    contact_email_1 = models.TextField(db_column='Contact_Email_1', blank=True, null=True)  # Field name made lowercase.
+    contact_name_2 = models.TextField(db_column='Contact_Name_2', blank=True, null=True)  # Field name made lowercase.
+    contact_phone_2 = models.TextField(db_column='Contact_Phone_2', blank=True, null=True)  # Field name made lowercase.
+    contact_email_2 = models.TextField(db_column='Contact_Email_2', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
         db_table = 'Customer_Master'
         
 class CustomerPurchaseOrder(models.Model):
-    slno = models.AutoField(db_column='SlNo', primary_key=True)  # Field name made lowercase. The composite primary key (SlNo, PONo, Customer_ID, PO_Sl_No) found, that is not supported. The first column is selected.
+    slno = models.TextField(db_column='SlNo', primary_key=True)  # Field name made lowercase. The composite primary key (SlNo, PONo, Customer_ID, PO_Sl_No) found, that is not supported. The first column is selected. This field type is a guess.
     pono = models.TextField(db_column='PONo')  # Field name made lowercase.
     podate = models.TextField(db_column='PODate', blank=True, null=True)  # Field name made lowercase.
     quote_id = models.TextField(db_column='Quote_ID', blank=True, null=True)  # Field name made lowercase.
@@ -36,6 +40,7 @@ class CustomerPurchaseOrder(models.Model):
     quantity = models.TextField(db_column='Quantity', blank=True, null=True)  # Field name made lowercase.
     unit_price = models.TextField(db_column='Unit_Price', blank=True, null=True)  # Field name made lowercase.
     uom = models.TextField(db_column='UOM', blank=True, null=True)  # Field name made lowercase.
+    hsn_sac = models.TextField(db_column='Hsn_Sac', blank=True, null=True)  # Field name made lowercase.
     total_price = models.TextField(db_column='Total_Price', blank=True, null=True)  # Field name made lowercase.
     qty_balance = models.IntegerField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase.
     qty_sent = models.IntegerField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase.
@@ -44,7 +49,6 @@ class CustomerPurchaseOrder(models.Model):
     class Meta:
         managed = False
         db_table = 'Customer_Purchase_Order'
-
         
 class SupplierProductMaster(models.Model):
     prod_id = models.TextField(primary_key=True)  # The composite primary key (prod_id, pack_size) found, that is not supported. The first column is selected.
@@ -91,6 +95,7 @@ class OtwDc(models.Model):
     po_sl_no = models.TextField()
     prod_desc = models.TextField(blank=True, null=True)
     additional_desc = models.TextField(blank=True, null=True)
+    omat = models.TextField(blank=True, null=True)
     qty_delivered = models.TextField(blank=True, null=True)
     pack_size = models.TextField(blank=True, null=True)
     unit_price = models.TextField(blank=True, null=True)
@@ -98,6 +103,10 @@ class OtwDc(models.Model):
     cgst_price = models.TextField(blank=True, null=True)
     sgst_price = models.TextField(blank=True, null=True)
     igst_price = models.TextField(blank=True, null=True)
+    hsn_sac = models.TextField(blank=True, null=True)
+    batch = models.TextField(blank=True, null=True)
+    coc = models.TextField(blank=True, null=True)
+    contact_name = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = False
