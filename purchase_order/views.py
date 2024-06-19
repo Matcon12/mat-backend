@@ -146,18 +146,28 @@ def submit_form(request):
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
 def get_data_purchase_order(request):
-  if request.method == 'GET':
-    try:
-      cust_id = request.GET.get('cust_id')
-      po_no = request.GET.get('po_no')
-      po_sl_no = request.GET.get('po_sl_no')
-      if cust_id and po_no and po_sl_no:        
-        data = list(CustomerPurchaseOrder.objects.filter(customer_id=cust_id, pono=po_no, po_sl_no=po_sl_no).values())
-        return JsonResponse(data, safe=False)
-      else:
-        return JsonResponse({'error': 'parameters are missing'}, status=400)
-    except ObjectDoesNotExist:
-        return JsonResponse({'error': 'data not found'}, status=400)
+    if request.method == 'GET':
+    # try:
+    #   cust_id = request.GET.get('cust_id')
+    #   po_no = request.GET.get('po_no')
+    #   po_sl_no = request.GET.get('po_sl_no')
+    #   if cust_id and po_no and po_sl_no:        
+    #     data = list(CustomerPurchaseOrder.objects.filter(customer_id=cust_id, pono=po_no, po_sl_no=po_sl_no).values())
+    #     return JsonResponse(data, safe=False)
+    #   else:
+    #     return JsonResponse({'error': 'parameters are missing'}, status=400)
+    # except ObjectDoesNotExist:
+    #     return JsonResponse({'error': 'data not found'}, status=400)
+
+        try:
+            po_no = request.GET.get('po_no')
+            if po_no:
+                data = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
+                return JsonResponse(data, safe=False)
+            else:
+                return JsonResponse({'error': 'parameters are missing'}, status=400)
+        except ObjectDoesNotExist:
+            return JsonResponse({'error': 'data not found'}, status=400)
 
 @csrf_exempt
 def update_purchase_order(request):
