@@ -20,6 +20,7 @@ import datetime as d
 from babel.numbers import format_currency
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
+from django.forms.models import model_to_dict
 
 from .serializers import UserSerializer
 
@@ -138,7 +139,8 @@ def submit_form(request):
                 total_price=product.get('totalPrice'),
                 qty_sent="0",
                 qty_balance=product.get('quantity'),
-                delivery_date=product.get('deliveryDate')
+                delivery_date=product.get('deliveryDate'),
+                po_validity=product.get('poValidity'),
             )
 
         return JsonResponse({"message": "Success", "details": response_data})
@@ -160,15 +162,30 @@ def get_data_purchase_order(request):
     #     return JsonResponse({'error': 'data not found'}, status=400)
 
         try:
+            po_no = request.GET.get('pono')
+            data = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
+            if data:    
+                data_dict = model_to_dict(data)
+                return JsonResponse({"success": True, "data": data_dict})
+            else:
+                return JsonResponse({"success": False, "error": "Data not found"})
+        except ObjectDoesNotExist:
+            return JsonResponse({'error': 'data not found'}, status=400)
+        
+def get_data_po_cust(request):
+    if request.method == 'GET':
+        try:
+            cust_id = request.GET.get('cust_id')
             po_no = request.GET.get('po_no')
-            if po_no:
-                data = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
+            po_sl_no = request.GET.get('po_sl_no')
+            if cust_id and po_no and po_sl_no:        
+                data = list(CustomerPurchaseOrder.objects.filter(customer_id=cust_id, pono=po_no, po_sl_no=po_sl_no).values())
                 return JsonResponse(data, safe=False)
             else:
                 return JsonResponse({'error': 'parameters are missing'}, status=400)
         except ObjectDoesNotExist:
             return JsonResponse({'error': 'data not found'}, status=400)
-
+    
 @csrf_exempt
 def update_purchase_order(request):
     if request.method == 'PUT':
@@ -177,16 +194,18 @@ def update_purchase_order(request):
             result = json.loads(data)
             
             # Extract search inputs
-            search_inputs = result.get('searchInputs', {})
-            cust_id = search_inputs.get('cust_id')
-            po_no = search_inputs.get('po_no')
+            search_inputs = result.get('searchData', {})
+            cust_id = search_inputs.get('customer_id')
+            po_no = search_inputs.get('pono')
             po_sl_no = search_inputs.get('po_sl_no')
+            print(f"Customer ID: {cust_id}, PO Number: {po_no}, PO SL Number: {po_sl_no}")
             
             if not all([cust_id, po_no, po_sl_no]):
                 return JsonResponse({'error': 'Missing required fields'}, status=400)
             
             # Fetch the record to update
             record = CustomerPurchaseOrder.objects.get(customer_id=cust_id, pono=po_no, po_sl_no=po_sl_no)
+            print(f"Record before update: {record.__dict__}")
             
             # Update the record with new values from searchData
             search_data = result.get('searchData', {})
@@ -197,7 +216,7 @@ def update_purchase_order(request):
                     print(f"Invalid key: {key}")
             
             record.save()
-            
+            print(f"Record after update: {record.__dict__}")
             return JsonResponse({'success': True})
         except CustomerPurchaseOrder.DoesNotExist:
             return JsonResponse({'error': 'Record not found'}, status=404)

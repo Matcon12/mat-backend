@@ -45,6 +45,7 @@ class CustomerPurchaseOrder(models.Model):
     qty_balance = models.IntegerField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase.
     qty_sent = models.IntegerField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase.
     delivery_date = models.TextField(db_column='Delivery_Date', blank=True, null=True)  # Field name made lowercase.
+    po_validity = models.TextField(db_column='Po_Validity', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False

@@ -9,6 +9,7 @@ urlpatterns = [
   path('customerName', views.get_customer_detail, name='customer'),
   path('submitForm', views.submit_form, name='submitForm'),
   path('getData', views.get_data_purchase_order, name='updateForm'),
+  path('getDataPoCust', views.get_data_po_cust, name='updateForm'),
   path('updateForm', views.update_purchase_order, name='updateForm'),
   path('addCustomerDetails', views.add_customer_details, name='addCustomerDetails'),
   path('getCustomerData', views.get_customer_data, name="getCustomerData"),
