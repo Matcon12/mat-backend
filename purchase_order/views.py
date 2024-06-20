@@ -209,6 +209,7 @@ def update_purchase_order(request):
             
             # Update the record with new values from searchData
             search_data = result.get('searchData', {})
+            print(search_data)
             for key, value in search_data.items():
                 if hasattr(record, key):
                     setattr(record, key, value)
@@ -276,8 +277,12 @@ def get_customer_details(request):
                'cust_st_name': result.cust_st_name,
                'cust_pin': result.cust_pin,
                'cust_gst_id': result.cust_gst_id,
-               'phone_no': result.phone_no,
-               'email': result.email,
+               'contact_name_1': result.contact_name_1,
+               'contact_phone_1': result.contact_phone_1,
+               'contact_email_1': result.contact_email_1,
+               'contact_name_2': result.contact_name_2,
+               'contact_phone_2': result.contact_phone_2,
+               'contact_email_2': result.contact_email_2,
             })
          else:
             return JsonResponse({'error': 'cust_id parameter is missing'}, status=400)
@@ -718,7 +723,7 @@ def get_invoice_data(request):
 def get_state_data(request):
     try:
         print('entered')
-        state_data = GstStateCode.objects.all().values()
+        state_data = GstStateCode.objects.all().values().order_by('state_name')
         return JsonResponse({"success": True, "state_data": list(state_data)})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
@@ -727,7 +732,7 @@ def get_state_data(request):
 def get_customer_data(request):
     try:
         print('entered')
-        state_data = CustomerMaster.objects.all().values()
+        state_data = CustomerMaster.objects.all().values().order_by('cust_id')
         return JsonResponse({"success": True, "customerData": list(state_data)})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
@@ -736,8 +741,9 @@ def get_customer_data(request):
 def get_purchase_order(request):
     try:
         print('entered')
-        state_data = CustomerPurchaseOrder.objects.all().values()
-        return JsonResponse({"success": True, "purchaseOrder": list(state_data)})
+        # state_data = CustomerPurchaseOrder.objects.all().distinct().values()
+        distinct_pono = list(CustomerPurchaseOrder.objects.values('pono').distinct().order_by('pono'))
+        return JsonResponse({"success": True, "distinct_pono": distinct_pono})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
     
