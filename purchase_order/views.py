@@ -401,7 +401,9 @@ def update_product_details(request):
 @csrf_exempt
 def invoice_processing(request):
     data = json.loads(request.body.decode('utf-8'))
-
+    
+    # print(data)
+    
     po_no = data['formData'].get('poNo').get('poNo')
     cust_id = data['formData'].get('customerId')
     new_cons_id = data['formData'].get('newConsigneeName')
@@ -484,6 +486,7 @@ def invoice_processing(request):
     df_inw['qty_tobe_del'] = df_inw['po_sl_no'].map(qty_dict)
 
     #Checking if 'qty_tobe_del' <= 'qty_balance' for all items
+    
     for index, row in df_inw.iterrows():
         qty_tobe_del = row['qty_tobe_del']
         qty_balance = row['qty_balance']
@@ -506,8 +509,18 @@ def invoice_processing(request):
     # Calculate the taxable_amt and GST for each items based on the State_Code
     df_inw["taxable_amt"] = df_inw["qty_tobe_del"].astype(float) * df_inw["unit_price"].astype(float)
     
-    state_code = CustomerMaster.objects.filter(cust_id=cust_id).values_list('cust_st_code', flat=True).first()
+    try:
+        state = CustomerMaster.objects.get(cust_id=cust_id)
+        print(state.__dict__)
+        state_code = CustomerMaster.objects.filter(cust_id=cust_id).values_list('cust_st_code', flat=True).first()
+        if(state_code):
+            print(state_code)
+        else:
+            print("state code not found for the given customer id")
+    except Exception as e:
+        return str(e)
     
+    print(cust_id)
     if int(state_code) == 29:
         df_inw["cgst_price"] = cgst_r * (df_inw["taxable_amt"].astype(float))
         df_inw["sgst_price"] = sgst_r * (df_inw["taxable_amt"].astype(float))
@@ -526,7 +539,6 @@ def invoice_processing(request):
     df_inw["qty_sent"] = df_inw["qty_sent"].astype(float) + df_inw["qty_tobe_del"].astype(float)
     df_inw["qty_balance"] = df_inw["qty_balance"].astype(float) - df_inw["qty_tobe_del"].astype(float)
 
-    
     # Insert Outward_DC table with new records
     # Iterate over each row in the DataFrame
     for index, row in df_inw.iterrows():
@@ -700,24 +712,56 @@ def get_invoice_data(request):
             po_no = request.GET.get("poNo")
             print(po_no)    
             if po_no:
-                result = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
-                contact = CustomerMaster.objects.filter(cust_id=result.customer_id)
-                print(contact.values()[0].get('contact_name_1'))
+                result = CustomerPurchaseOrder.objects.filter(pono=po_no)
+                result_first = result.first()  
                 
-                contact = [
-                    contact[0].contact_name_1,
-                    contact[0].contact_name_2
+                if not result_first:
+                    return JsonResponse({"error": "No matching CustomerPurchaseOrder found"}, status=404)
+                
+                contact = CustomerMaster.objects.filter(cust_id=result_first.customer_id).values()
+                
+                if contact.exists():
+                    contact_names = [
+                        contact[0].get('contact_name_1'),
+                        contact[0].get('contact_name_2')
+                    ]
+                else:
+                    contact_names = [None, None]
+                    
+                print('contact: ', contact_names)
+                
+                cust_id = result_first.customer_id
+                consignee_id = result_first.consignee_id
+                invoice_header_data = {
+                    'cust_id': cust_id,
+                    'consignee_id': consignee_id,
+                    'contact_names': contact_names
+                }
+                
+                # Serialize the result queryset to a list of dictionaries
+                result_data = list(result.values())
+                
+                result_data = list(result.values())
+                filtered_result_data = [
+                    {
+                        'pono': item['pono'],
+                        'po_sl_no': item['po_sl_no'],
+                        'unit_price': item['unit_price'],
+                        'prod_code': item['prod_code'],
+                        'prod_desc': item['prod_desc']
+                    }
+                    for item in result_data
                 ]
-                print('contact: ', contact)
-                cust_id = result.customer_id
-                consignee_id = result.consignee_id
-                return JsonResponse({"success": True, "cust_id": cust_id, 'consignee_id': consignee_id, 'contact': contact})
+                                
+                return JsonResponse({"success": True, "invoice_header_data": invoice_header_data, "result": filtered_result_data})
             else:
                 return JsonResponse({"error": "po_no parameter is missing"}, status=400)
         except ObjectDoesNotExist:
-            return JsonResponse('object does not exist', status=400)
+            return JsonResponse({"error": "Object does not exist"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
     else:
-        return JsonResponse({"Error": "Only get requests are allowed"}, status=400)
+        return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
 
 @api_view(["GET"])
 def get_state_data(request):
@@ -782,7 +826,12 @@ def login(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def test_token(request):
-    return Response("passed!")
+    user = request.user
+    user_details = {
+        'username': user.username,
+        # Add any other user details you need
+    }
+    return Response({'valid': True, "user_details": user_details})
 
 @api_view(['POST'])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
