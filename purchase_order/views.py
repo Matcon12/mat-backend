@@ -616,18 +616,20 @@ def invoice_generation(request):
         gcn_no = request.GET.get("gcn_no")
         if not gcn_no:
             return JsonResponse({"error": "GCN number is required"}, status=400)
-
+        
         # Derive the complete gcn_no for this invoice
         gst_rate = get_object_or_404(GstRates, id=1)
         fin_year = int(gst_rate.fin_year)
         f_year = fin_year + 1
         fyear = str(f_year)[2:]
-        gcn_no = gst_rate.last_gcn_no
+        # gcn_no = gst_rate.last_gcn_no
+        print("gcn_no: ", gcn_no)
         gcn_num = f"{str(gcn_no).zfill(3)}/{fin_year}-{fyear}"
 
+        print("gcn_num: ", gcn_num)
         # Get data from otw_dc table
         otwdc_values = OtwDc.objects.filter(gcn_no=gcn_num)
-        
+        print("otwdc_values: ", otwdc_values.values())
         if not otwdc_values.exists():
             return JsonResponse({"error": "No records found for the provided GCN number"}, status=404)
 
@@ -689,7 +691,6 @@ def invoice_generation(request):
             'gt': gt,
             'total_qty': total_qty
         }
-        print(context)
         return JsonResponse({"message": "success", "context": context}, safe=False)
     else:
         return JsonResponse({"error": "Only GET requests are allowed"}, status=405)
@@ -782,7 +783,10 @@ def login(request):
 @authentication_classes([SessionAuthentication, TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def test_token(request):
-    return Response("passed!")
+    token = request.GET.get("token")
+    user = request.GET.get("user")
+    # return Response("passed!", {token: token, valid: True})
+    return JsonResponse({"valid": True, "token": token, "user": user})
 
 @api_view(['POST'])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
