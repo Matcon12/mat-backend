@@ -42,8 +42,8 @@ class CustomerPurchaseOrder(models.Model):
     uom = models.TextField(db_column='UOM', blank=True, null=True)  # Field name made lowercase.
     hsn_sac = models.TextField(db_column='Hsn_Sac', blank=True, null=True)  # Field name made lowercase.
     total_price = models.TextField(db_column='Total_Price', blank=True, null=True)  # Field name made lowercase.
-    qty_balance = models.IntegerField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase.
-    qty_sent = models.IntegerField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase.
+    qty_balance = models.TextField(db_column='Qty_Balance', blank=True, null=True)  # Field name made lowercase. This field type is a guess.
+    qty_sent = models.TextField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase. This field type is a guess.
     delivery_date = models.TextField(db_column='Delivery_Date', blank=True, null=True)  # Field name made lowercase.
     po_validity = models.TextField(db_column='Po_Validity', blank=True, null=True)  # Field name made lowercase.
 
@@ -108,6 +108,7 @@ class OtwDc(models.Model):
     batch = models.TextField(blank=True, null=True)
     coc = models.TextField(blank=True, null=True)
     contact_name = models.TextField(blank=True, null=True)
+    contact_number = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = False

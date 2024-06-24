@@ -402,20 +402,20 @@ def update_product_details(request):
 def invoice_processing(request):
     data = json.loads(request.body.decode('utf-8'))
     
-    # print(data)
-    
-    po_no = data['formData'].get('poNo').get('poNo')
-    cust_id = data['formData'].get('customerId')
-    new_cons_id = data['formData'].get('newConsigneeName')
-    contact_name = data['formData'].get('contactName')
-
+    po_no = data['formData2'].get('poNo')
+    cust_id = data['formData2'].get('customerId')
+    new_cons_id = data['formData2'].get('newConsigneeName')
+    contact_name = data['formData2'].get('contactName')
+    contact_nums = CustomerMaster.objects.filter(cust_id=cust_id).values().first()
+    contact = contact_nums['contact_phone_1'] if contact_nums['contact_name_1'] == contact_name else contact_nums['contact_phone_2']
+    print("contact: ", contact)
     po_sl_numbers = []
     qty_tobe_del = []
     hsn = []
     batch = []
     coc = []
 
-    for item in data['formData']['items']:
+    for item in data['formData2']['items']:
     # for item in data['items']:
         po_sl_numbers.append(item['poSlNo'])
         qty_tobe_del.append(item['quantity'])
@@ -486,25 +486,30 @@ def invoice_processing(request):
     df_inw['qty_tobe_del'] = df_inw['po_sl_no'].map(qty_dict)
 
     #Checking if 'qty_tobe_del' <= 'qty_balance' for all items
-    
+    print("df_inw: ", df_inw.__dict__)
     for index, row in df_inw.iterrows():
         qty_tobe_del = row['qty_tobe_del']
         qty_balance = row['qty_balance']
         
         quantity = row['quantity']
+
+        print("\nqty_tobe_del: ", qty_tobe_del)
+        print("\nqty_balance: ", qty_balance)
+        print("\nquantity: ", quantity)
         if qty_tobe_del is not None and qty_balance is not None and quantity is not None:
-            if (int(qty_tobe_del) > int(qty_balance)) or (int(qty_tobe_del) > int(quantity)):
+            if (float(qty_tobe_del) > float(qty_balance)) or (float(qty_tobe_del) > float(quantity)):
                 print("ERROR: Insufficient Quantity")
                 return JsonResponse({"error": "Insufficient Quantity"}, status=500)
         else:
             print("ERROR: Quantity information missing")
             return JsonResponse({"error": "Quantity information missing"}, status=404)
-
+    
     # Getting GST Rates from the table
     gst_instance = GstRates.objects.get()
     cgst_r = float(gst_instance.cgst_rate)/100
     sgst_r = float(gst_instance.sgst_rate)/100
     igst_r = float(gst_instance.igst_rate)/100
+
     
     # Calculate the taxable_amt and GST for each items based on the State_Code
     df_inw["taxable_amt"] = df_inw["qty_tobe_del"].astype(float) * df_inw["unit_price"].astype(float)
@@ -538,41 +543,55 @@ def invoice_processing(request):
     # Updating the qty_delivered and qty_balance for Inward DC
     df_inw["qty_sent"] = df_inw["qty_sent"].astype(float) + df_inw["qty_tobe_del"].astype(float)
     df_inw["qty_balance"] = df_inw["qty_balance"].astype(float) - df_inw["qty_tobe_del"].astype(float)
-
+    
     # Insert Outward_DC table with new records
     # Iterate over each row in the DataFrame
     for index, row in df_inw.iterrows():
-        print(hsn[index], batch[index], coc[index])
-        max_slno = OtwDc.objects.aggregate(Max('sl_no'))['sl_no__max']
-        new_slno = max_slno + 1 if max_slno else 1
-        OtwDc_instance = OtwDc(
-            sl_no = new_slno,
-            gcn_no   = row['gcn_no'],
-            gcn_date = row['gcn_date'],
-            po_no    = row['pono'],
-            po_date  = row['podate'],
-            consignee_id = row['consignee_id'],
-            po_sl_no = row['po_sl_no'],
-            prod_id = row['prod_code'],
-            prod_desc = row['prod_desc'],
-            additional_desc = row['additional_desc'],
-            omat = row['omat'],
-            qty_delivered = row['qty_tobe_del'],
-            pack_size = row['pack_size'],
-            unit_price = row['unit_price'],
-            taxable_amt = row['taxable_amt'],
-            cgst_price = row['cgst_price'],
-            sgst_price = row['sgst_price'],
-            igst_price = row['igst_price'],
-            cust_id = row['cust_id'],
-            hsn_sac = hsn[index],
-            batch = batch[index],
-            coc = coc[index],
-            contact_name = contact_name
-        )
-        # Save the instance to the database
-        OtwDc_instance.save()
+        try:
+            hsn_value = hsn[index]
+            batch_value = batch[index]
+            coc_value = coc[index]
 
+            print(hsn_value, batch_value, coc_value)
+            print("row: ", row)
+
+            max_slno = OtwDc.objects.aggregate(Max('sl_no'))['sl_no__max']
+            new_slno = max_slno + 1 if max_slno else 1
+
+            OtwDc_instance = OtwDc(
+                sl_no = new_slno,
+                gcn_no = row.get('gcn_no', ''),
+                gcn_date = row.get('gcn_date', ''),
+                po_no = row.get('pono', ''),
+                po_date = row.get('podate', ''),
+                consignee_id = row.get('consignee_id', ''),
+                po_sl_no = row.get('po_sl_no', ''),
+                prod_id = row.get('prod_code', ''),
+                prod_desc = row.get('prod_desc', ''),
+                additional_desc = row.get('additional_desc', ''),
+                omat = row.get('omat', ''),
+                qty_delivered = row.get('qty_tobe_del', ''),
+                pack_size = row.get('pack_size', ''),
+                unit_price = row.get('unit_price', ''),
+                taxable_amt = row.get('taxable_amt', ''),
+                cgst_price = row.get('cgst_price', ''),
+                sgst_price = row.get('sgst_price', ''),
+                igst_price = row.get('igst_price', ''),
+                cust_id = row.get('cust_id', ''),
+                hsn_sac = hsn_value,
+                batch = batch_value,
+                coc = coc_value,
+                # contact_name = contact_name,
+                # contact_number = contact
+            )
+
+            # Save the instance to the database
+            OtwDc_instance.save()
+
+        except KeyError as e:
+            print(f"Missing key in row: {e}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
     # Update Inward_DC table with new qty_delivered & qty_balance
     # for index, row in df_inw.iterrows():
         try:
@@ -586,8 +605,8 @@ def invoice_processing(request):
             # Update the record
             # record.qty_balance = F('qty_balance') - row['qty_tobe_del']
             # record.qty_sent = F('qty_sent') + row['qty_tobe_del']
-            record.qty_balance = int(record.qty_balance) - int(row['qty_tobe_del'])
-            record.qty_sent = int(record.qty_sent) + int(row["qty_tobe_del"])
+            record.qty_balance = float(record.qty_balance) - float(row['qty_tobe_del'])
+            record.qty_sent = float(record.qty_sent) + float(row["qty_tobe_del"])
 
             # record.save(update_fields=['qty_balance', 'qty_sent'])
             record.save()
@@ -711,7 +730,6 @@ def get_invoice_data(request):
     if request.method == 'GET': 
         try:
             po_no = request.GET.get("poNo")
-            print(po_no)    
             if po_no:
                 result = CustomerPurchaseOrder.objects.filter(pono=po_no)
                 result_first = result.first()  
@@ -734,8 +752,8 @@ def get_invoice_data(request):
                 cust_id = result_first.customer_id
                 consignee_id = result_first.consignee_id
                 invoice_header_data = {
-                    'cust_id': cust_id,
-                    'consignee_id': consignee_id,
+                    'customerId': cust_id,
+                    'consigneeId': consignee_id,
                     'contact_names': contact_names
                 }
                 
@@ -745,15 +763,15 @@ def get_invoice_data(request):
                 result_data = list(result.values())
                 filtered_result_data = [
                     {
-                        'pono': item['pono'],
+                        'poNo': item['pono'],
                         'po_sl_no': item['po_sl_no'],
                         'unit_price': item['unit_price'],
                         'prod_code': item['prod_code'],
-                        'prod_desc': item['prod_desc']
+                        'prod_desc': item['prod_desc'], 
+                        'hsnSac': item['hsn_sac']
                     }
                     for item in result_data
                 ]
-                                
                 return JsonResponse({"success": True, "invoice_header_data": invoice_header_data, "result": filtered_result_data})
             else:
                 return JsonResponse({"error": "po_no parameter is missing"}, status=400)
