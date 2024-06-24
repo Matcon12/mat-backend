@@ -406,6 +406,8 @@ def invoice_processing(request):
     cust_id = data['formData2'].get('customerId')
     new_cons_id = data['formData2'].get('newConsigneeName')
     contact_name = data['formData2'].get('contactName')
+    freight_charges = data['formData2'].get('freightCharges')
+    insurance_charges = data['formData2'].get('insuranceCharges')
     contact_nums = CustomerMaster.objects.filter(cust_id=cust_id).values().first()
     contact = contact_nums['contact_phone_1'] if contact_nums['contact_name_1'] == contact_name else contact_nums['contact_phone_2']
     print("contact: ", contact)
@@ -427,13 +429,41 @@ def invoice_processing(request):
     data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
     data_dict_inw = list(data_inw.values()) 
     df_inw = pd.DataFrame(data_dict_inw)
+    
+    new_rows = []
+    print("enter")
+    # First row based on some condition
+    if freight_charges:  # Example condition: if freight_charges is not blank
+        new_row_1 = {
+            'prod_desc': 'Packing forwarding with Freight charges',
+            'quantity': '1',
+            'uom': 'No',
+            'unit_price': float(freight_charges),
+            'total_price': float(freight_charges),
+        }
+        new_rows.append(new_row_1)
+
+    # Second row based on another condition
+    if insurance_charges:  # Example condition: if insurance_charges is not blank
+        new_row_2 = {
+            'prod_desc': 'Insurance charges',
+            'quantity': '1',
+            'uom': 'No',
+            'unit_price': float(insurance_charges),
+            'total_price': float(insurance_charges),
+        }
+        new_rows.append(new_row_2)
+        
+    # Append the new rows to the dataframe
+    for new_row in new_rows:
+        df_inw = df_inw.append(new_row, ignore_index=True)
 
     # Checking if the Inward DC is valid
     if df_inw.empty:
         print(f"Purchase Order No '{po_no}' does not exist in the database.")
         return JsonResponse({"message": 'po_no does not exists'},status=404)
 
-# notrequired
+    # notrequired
     # # Checking the validity if Open PO 
     # grn_date = df_inw.iloc[0]['grn_date']
     # po_no = df_inw.iloc[0]['po_no']
@@ -526,14 +556,17 @@ def invoice_processing(request):
         return str(e)
     
     print(cust_id)
-    if int(state_code) == 29:
-        df_inw["cgst_price"] = cgst_r * (df_inw["taxable_amt"].astype(float))
-        df_inw["sgst_price"] = sgst_r * (df_inw["taxable_amt"].astype(float))
-        df_inw["igst_price"] = 0.0
-    else:
-        df_inw["cgst_price"] = 0.0
-        df_inw["sgst_price"] = 0.0
-        df_inw["igst_price"] = igst_r * (df_inw["taxable_amt"].astype(float))
+    print("df_inw: ", df_inw["gst_applicable"])
+    if df_inw["gst_applicable"] != "false" or df_inw["gst_applicable"] == "": 
+    # if df_inw["gst_applicable"]:
+        if int(state_code) == 29:
+            df_inw["cgst_price"] = cgst_r * (df_inw["taxable_amt"].astype(float))
+            df_inw["sgst_price"] = sgst_r * (df_inw["taxable_amt"].astype(float))
+            df_inw["igst_price"] = 0.0
+        else:
+            df_inw["cgst_price"] = 0.0
+            df_inw["sgst_price"] = 0.0
+            df_inw["igst_price"] = igst_r * (df_inw["taxable_amt"].astype(float))
 
     # Format the result
     df_inw["cgst_price"] = df_inw["cgst_price"].apply(lambda x: '{:.2f}'.format(x))
