@@ -112,7 +112,7 @@ def submit_form(request):
             'formData': formData,
             'productDetails': productDetails
         }
-
+        # return JsonResponse({"message": "Success", "details": response_data})
 
         for product in productDetails:
             max_slno = CustomerPurchaseOrder.objects.aggregate(Max('slno'))['slno__max']
@@ -126,6 +126,7 @@ def submit_form(request):
                 quote_date=formData.get('poValidity'),
                 customer_id=formData.get('customerId'),
                 consignee_id=formData.get('consigneeId'),
+                gst_applicable=formData.get('gstApplicable'),
                 po_sl_no=product.get('poSlNo'),
                 prod_code=product.get('prodId'),
                 prod_desc=product.get('productDesc'),
@@ -406,11 +407,11 @@ def invoice_processing(request):
     cust_id = data['formData2'].get('customerId')
     new_cons_id = data['formData2'].get('newConsigneeName')
     contact_name = data['formData2'].get('contactName')
+    gst_applicable = data['formData2'].get('gstApplicable')
     freight_charges = data['formData2'].get('freightCharges')
     insurance_charges = data['formData2'].get('insuranceCharges')
     contact_nums = CustomerMaster.objects.filter(cust_id=cust_id).values().first()
     contact = contact_nums['contact_phone_1'] if contact_nums['contact_name_1'] == contact_name else contact_nums['contact_phone_2']
-    print("contact: ", contact)
     po_sl_numbers = []
     qty_tobe_del = []
     hsn = []
@@ -427,41 +428,99 @@ def invoice_processing(request):
     
     # Creating a dataframe with the relevant Inw Delivery records
     data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
+    # data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no)
     data_dict_inw = list(data_inw.values()) 
     df_inw = pd.DataFrame(data_dict_inw)
-    
-    new_rows = []
-    print("enter")
-    # First row based on some condition
-    if freight_charges:  # Example condition: if freight_charges is not blank
-        new_row_1 = {
-            'prod_desc': 'Packing forwarding with Freight charges',
-            'quantity': '1',
-            'uom': 'No',
-            'unit_price': float(freight_charges),
-            'total_price': float(freight_charges),
-        }
-        new_rows.append(new_row_1)
+    if gst_applicable is None:
+        gst_applicable = df_inw.iloc[0].get('gst_applicable', gst_applicable)
 
-    # Second row based on another condition
-    if insurance_charges:  # Example condition: if insurance_charges is not blank
-        new_row_2 = {
-            'prod_desc': 'Insurance charges',
-            'quantity': '1',
+    print("fetching data from CPO successful")
+    # print(df_inw.to_dict())
+    # return JsonResponse({"message": "suces"})
+
+    if(freight_charges):
+        new_row = {
+            'slno': '',
+            'pono': '',
+            'podate': '',
+            'quote_id': '',
+            'quote_date': '',
+            'customer_id': '',
+            'consignee_id': '',
+            'po_sl_no': '',
+            'prod_code': '',
+            'prod_desc': 'Packing forwarding with Freight charges',
+            'additional_desc': '',
+            'omat': '',
+            'pack_size': '',
+            'quantity': 1,
+            'unit_price': 20.0,
             'uom': 'No',
-            'unit_price': float(insurance_charges),
-            'total_price': float(insurance_charges),
+            'hsn_sac': '9965',
+            'total_price': 20.0,
+            'qty_balance': 1,
+            'qty_sent': 1,
+            'delivery_date': '',
+            'po_validity': '',
+            'gst_applicable': '',
         }
-        new_rows.append(new_row_2)
         
-    # Append the new rows to the dataframe
-    for new_row in new_rows:
-        df_inw = df_inw.append(new_row, ignore_index=True)
+        po_sl_numbers.append('')
+        qty_tobe_del.append(1)
+        hsn.append('9965')
+        batch.append('')
+        coc.append('')
+        # Append the new row and reassign to df_inw
+        index_to_insert = len(df_inw)  # Insert at the end of the DataFrame
+
+        # Append the new row using iloc
+        df_inw.loc[index_to_insert] = new_row
+    
+    if(insurance_charges):
+        new_row = {
+            'slno': '',
+            'pono': '',
+            'podate': '',
+            'quote_id': '',
+            'quote_date': '',
+            'customer_id': '',
+            'consignee_id': '',
+            'po_sl_no': '',
+            'prod_code': '',
+            'prod_desc': 'Insurance Charges',
+            'additional_desc': '',
+            'omat': '',
+            'pack_size': '',
+            'quantity': 1,
+            'unit_price': 30.0,
+            'uom': 'No',
+            'hsn_sac': '9971',
+            'total_price': 30.0,
+            'qty_balance': 1,
+            'qty_sent': 1,
+            'delivery_date': '',
+            'po_validity': '',
+            'gst_applicable': '',
+        }
+        
+        po_sl_numbers.append('')
+        qty_tobe_del.append(1)
+        hsn.append('9971')
+        batch.append('')
+        coc.append('')
+        # Append the new row and reassign to df_inw
+        index_to_insert = len(df_inw)  # Insert at the end of the DataFrame
+
+        # Append the new row using iloc
+        df_inw.loc[index_to_insert] = new_row
+
 
     # Checking if the Inward DC is valid
     if df_inw.empty:
         print(f"Purchase Order No '{po_no}' does not exist in the database.")
         return JsonResponse({"message": 'po_no does not exists'},status=404)
+
+    print("successfully added insurance and freight charges")
 
     # notrequired
     # # Checking the validity if Open PO 
@@ -499,6 +558,8 @@ def invoice_processing(request):
     # else:
     #     flag=''    
     gcn_num = (str(new_gcn_no).zfill(3)+ "/" + str(fin_year)+"-"+str(fyear))
+
+    print("calculated gcn_num: ", gcn_num)
         
     current_date = current
     date = str(current_date.strftime('%d-%m-%Y'))
@@ -511,12 +572,13 @@ def invoice_processing(request):
     df_inw["gcn_date"] = date
     df_inw["consignee_id"] = cust_id if (new_cons_id == '') else new_cons_id
 
+    print("enter")
     # Getting the corresponding 'qty_tobe_del' for the po_sl_no
     qty_dict = dict(zip(po_sl_numbers, qty_tobe_del))
     df_inw['qty_tobe_del'] = df_inw['po_sl_no'].map(qty_dict)
+    print("df_inw: ", df_inw.to_dict())
 
     #Checking if 'qty_tobe_del' <= 'qty_balance' for all items
-    print("df_inw: ", df_inw.__dict__)
     for index, row in df_inw.iterrows():
         qty_tobe_del = row['qty_tobe_del']
         qty_balance = row['qty_balance']
@@ -524,8 +586,9 @@ def invoice_processing(request):
         quantity = row['quantity']
 
         print("\nqty_tobe_del: ", qty_tobe_del)
-        print("\nqty_balance: ", qty_balance)
-        print("\nquantity: ", quantity)
+        print("qty_balance: ", qty_balance)
+        print("quantity: ", quantity)
+        
         if qty_tobe_del is not None and qty_balance is not None and quantity is not None:
             if (float(qty_tobe_del) > float(qty_balance)) or (float(qty_tobe_del) > float(quantity)):
                 print("ERROR: Insufficient Quantity")
@@ -533,32 +596,31 @@ def invoice_processing(request):
         else:
             print("ERROR: Quantity information missing")
             return JsonResponse({"error": "Quantity information missing"}, status=404)
-    
+        
     # Getting GST Rates from the table
     gst_instance = GstRates.objects.get()
     cgst_r = float(gst_instance.cgst_rate)/100
     sgst_r = float(gst_instance.sgst_rate)/100
     igst_r = float(gst_instance.igst_rate)/100
-
     
     # Calculate the taxable_amt and GST for each items based on the State_Code
     df_inw["taxable_amt"] = df_inw["qty_tobe_del"].astype(float) * df_inw["unit_price"].astype(float)
+
+    print('exit')
     
     try:
-        state = CustomerMaster.objects.get(cust_id=cust_id)
-        print(state.__dict__)
+        # state = CustomerMaster.objects.get(cust_id=cust_id)
         state_code = CustomerMaster.objects.filter(cust_id=cust_id).values_list('cust_st_code', flat=True).first()
-        if(state_code):
-            print(state_code)
-        else:
-            print("state code not found for the given customer id")
+        # if(state_code):
+        #     print(state_code)
+        # else:
+        #     print("state code not found for the given customer id")
     except Exception as e:
         return str(e)
     
-    print(cust_id)
-    print("df_inw: ", df_inw["gst_applicable"])
-    if df_inw["gst_applicable"] != "false" or df_inw["gst_applicable"] == "": 
-    # if df_inw["gst_applicable"]:
+    # print("df_inw: ", df_inw["gst_applicable"])
+    # if df_inw["gst_applicable"] != "false" or df_inw["gst_applicable"] == "": 
+    if gst_applicable:
         if int(state_code) == 29:
             df_inw["cgst_price"] = cgst_r * (df_inw["taxable_amt"].astype(float))
             df_inw["sgst_price"] = sgst_r * (df_inw["taxable_amt"].astype(float))
@@ -567,6 +629,17 @@ def invoice_processing(request):
             df_inw["cgst_price"] = 0.0
             df_inw["sgst_price"] = 0.0
             df_inw["igst_price"] = igst_r * (df_inw["taxable_amt"].astype(float))
+    else:
+        if int(state_code) == 29:
+            df_inw["cgst_price"] = 0.0
+            df_inw["sgst_price"] = 0.0
+            df_inw["igst_price"] = 0.0
+        else:
+            df_inw["cgst_price"] = 0.0
+            df_inw["sgst_price"] = 0.0
+            df_inw["igst_price"] = 0.0
+
+    print("successfully calculated gst")
 
     # Format the result
     df_inw["cgst_price"] = df_inw["cgst_price"].apply(lambda x: '{:.2f}'.format(x))
@@ -577,19 +650,29 @@ def invoice_processing(request):
     df_inw["qty_sent"] = df_inw["qty_sent"].astype(float) + df_inw["qty_tobe_del"].astype(float)
     df_inw["qty_balance"] = df_inw["qty_balance"].astype(float) - df_inw["qty_tobe_del"].astype(float)
     
+    # return JsonResponse({'message': 'Invoice processing successful'})
+
     # Insert Outward_DC table with new records
     # Iterate over each row in the DataFrame
+    skip_index = []
+    if(freight_charges or insurance_charges):
+        i=0
+        if(freight_charges):
+            i+=1
+            skip_index.append(len(df_inw)-i)
+        if(insurance_charges):
+            i+=1
+            skip_index.append(len(df_inw)-i)
+
     for index, row in df_inw.iterrows():
         try:
             hsn_value = hsn[index]
             batch_value = batch[index]
             coc_value = coc[index]
 
-            print(hsn_value, batch_value, coc_value)
-            print("row: ", row)
-
             max_slno = OtwDc.objects.aggregate(Max('sl_no'))['sl_no__max']
             new_slno = max_slno + 1 if max_slno else 1
+
 
             OtwDc_instance = OtwDc(
                 sl_no = new_slno,
@@ -614,41 +697,37 @@ def invoice_processing(request):
                 hsn_sac = hsn_value,
                 batch = batch_value,
                 coc = coc_value,
-                # contact_name = contact_name,
-                # contact_number = contact
             )
-
             # Save the instance to the database
             OtwDc_instance.save()
-
         except KeyError as e:
             print(f"Missing key in row: {e}")
         except Exception as e:
             print(f"An error occurred: {e}")
     # Update Inward_DC table with new qty_delivered & qty_balance
     # for index, row in df_inw.iterrows():
-        try:
-            # Retrieve the record from the database table
-            record = CustomerPurchaseOrder.objects.get(
-                customer_id = row['customer_id'],
-                pono   = row['pono'],
-                po_sl_no= row['po_sl_no']
-            )
-            
-            # Update the record
-            # record.qty_balance = F('qty_balance') - row['qty_tobe_del']
-            # record.qty_sent = F('qty_sent') + row['qty_tobe_del']
-            record.qty_balance = float(record.qty_balance) - float(row['qty_tobe_del'])
-            record.qty_sent = float(record.qty_sent) + float(row["qty_tobe_del"])
+        if index not in skip_index:
+            try:
+                # Retrieve the record from the database table
+                record = CustomerPurchaseOrder.objects.get(
+                    customer_id = row['customer_id'],
+                    pono   = row['pono'],
+                    po_sl_no= row['po_sl_no']
+                )
+                
+                # Update the record
+                # record.qty_balance = F('qty_balance') - row['qty_tobe_del']
+                # record.qty_sent = F('qty_sent') + row['qty_tobe_del']
+                record.qty_balance = float(record.qty_balance) - float(row['qty_tobe_del'])
+                record.qty_sent = float(record.qty_sent) + float(row["qty_tobe_del"])
 
-            # record.save(update_fields=['qty_balance', 'qty_sent'])
-            record.save()
-            
-        except ObjectDoesNotExist:
-            # If the record doesn't exist, raise an error
-            raise Exception(f"Record with cust_id={row['customer_id']}, po_sl_no={row['po_sl_no']} does not exist.")
-            return
-
+                # record.save(update_fields=['qty_balance', 'qty_sent'])
+                record.save()
+                
+            except ObjectDoesNotExist:
+                # If the record doesn't exist, raise an error
+                raise Exception(f"Record with cust_id={row['customer_id']}, po_sl_no={row['po_sl_no']} does not exist.")
+    print("successfully added to otwdc")
     # # Update PO table with new qty_sent values
     # for index, row in df_inw.iterrows():
     #     try:
@@ -670,7 +749,7 @@ def invoice_processing(request):
     
     # Update the last_gcn_no in mat_company table
     GstRates.objects.filter(id=1).update(last_gcn_no = new_gcn_no)
-
+    print("successfully updated the last gcn no in the gst rated table")
     # Returning with success message 
     return JsonResponse({"success": True, "gcn_no": new_gcn_no})
 

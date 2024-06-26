@@ -46,6 +46,7 @@ class CustomerPurchaseOrder(models.Model):
     qty_sent = models.TextField(db_column='Qty_Sent', blank=True, null=True)  # Field name made lowercase. This field type is a guess.
     delivery_date = models.TextField(db_column='Delivery_Date', blank=True, null=True)  # Field name made lowercase.
     po_validity = models.TextField(db_column='Po_Validity', blank=True, null=True)  # Field name made lowercase.
+    gst_applicable = models.BooleanField(blank=True, null=True)
 
     class Meta:
         managed = False
