@@ -32,26 +32,26 @@ class CustomerMaster(models.Model):
 
 
 class CustomerPurchaseOrder(models.Model):
-    slno = models.TextField(primary_key=True)  # The composite primary key (slno, pono, customer_id, po_sl_no) found, that is not supported. The first column is selected. This field type is a guess.
+    slno = models.AutoField(primary_key=True)  # The composite primary key (slno, pono, customer_id, po_sl_no) found, that is not supported. The first column is selected.
     pono = models.CharField(max_length=20)
     podate = models.DateField(blank=True, null=True)
     quote_id = models.TextField(blank=True, null=True)
-    quote_date = models.TextField(blank=True, null=True)
-    customer_id = models.CharField(max_length=10)
-    consignee_id = models.CharField(max_length=10, blank=True, null=True)
+    quote_date = models.DateField(blank=True, null=True)
+    customer_id = models.CharField(max_length=15)
+    consignee_id = models.CharField(max_length=15, blank=True, null=True)
     po_sl_no = models.CharField(max_length=5)
     prod_code = models.CharField(max_length=30, blank=True, null=True)
     prod_desc = models.CharField(max_length=50, blank=True, null=True)
     additional_desc = models.CharField(max_length=50, blank=True, null=True)
     omat = models.CharField(max_length=50, blank=True, null=True)
     pack_size = models.CharField(max_length=10, blank=True, null=True)
-    quantity = models.TextField(blank=True, null=True)  # This field type is a guess.
-    unit_price = models.TextField(blank=True, null=True)  # This field type is a guess.
-    uom = models.CharField(max_length=10, blank=True, null=True)
+    quantity = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    unit_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    uom = models.CharField(max_length=5, blank=True, null=True)
     hsn_sac = models.CharField(max_length=10, blank=True, null=True)
-    total_price = models.TextField(blank=True, null=True)  # This field type is a guess.
-    qty_balance = models.TextField(blank=True, null=True)  # This field type is a guess.
-    qty_sent = models.TextField(blank=True, null=True)  # This field type is a guess.
+    total_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    qty_balance = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    qty_sent = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
     delivery_date = models.DateField(blank=True, null=True)
     po_validity = models.DateField(blank=True, null=True)
     gst_applicable = models.BooleanField(blank=True, null=True)
@@ -202,7 +202,6 @@ class GstStateCode(models.Model):
         db_table = 'gst_state_code'
 
 
-
 class OtwDc(models.Model):
     sl_no = models.AutoField(primary_key=True)
     gcn_no = models.CharField(max_length=20, blank=True, null=True)
@@ -218,11 +217,11 @@ class OtwDc(models.Model):
     omat = models.CharField(max_length=50, blank=True, null=True)
     qty_delivered = models.TextField(blank=True, null=True)
     pack_size = models.TextField(blank=True, null=True)
-    unit_price = models.TextField(blank=True, null=True)  # This field type is a guess.
-    taxable_amt = models.TextField(blank=True, null=True)  # This field type is a guess.
-    cgst_price = models.IntegerField(blank=True, null=True)
-    sgst_price = models.IntegerField(blank=True, null=True)
-    igst_price = models.IntegerField(blank=True, null=True)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    taxable_amt = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    cgst_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    sgst_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    igst_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
     hsn_sac = models.CharField(max_length=10, blank=True, null=True)
     batch = models.CharField(max_length=10, blank=True, null=True)
     coc = models.CharField(max_length=10, blank=True, null=True)
@@ -232,6 +231,7 @@ class OtwDc(models.Model):
     class Meta:
         managed = False
         db_table = 'otw_dc'
+
 
 class SupplierProductMaster(models.Model):
     prod_id = models.CharField(primary_key=True, max_length=30)  # The composite primary key (prod_id, pack_size) found, that is not supported. The first column is selected.
