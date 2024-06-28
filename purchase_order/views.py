@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-
+from datetime import datetime
 from django.forms import model_to_dict
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404
@@ -23,6 +23,8 @@ from rest_framework.authtoken.models import Token
 from django.forms.models import model_to_dict
 
 from .serializers import UserSerializer
+
+import xlsxwriter
 
 # Create your views here.
 def index(request):
@@ -92,7 +94,8 @@ def get_customer_detail(request):
       if cust_id:
         result = CustomerMaster.objects.get(cust_id=cust_id)
         return JsonResponse({
-          'customer_name': result.cust_name
+          'customer_name': result.cust_name,
+          'gst_exception': result.gst_exception,
         })
       else:
         return JsonResponse({'error': 'customerId parameter is missing'}, status=400)
@@ -126,7 +129,7 @@ def submit_form(request):
                 quote_date=formData.get('poValidity'),
                 customer_id=formData.get('customerId'),
                 consignee_id=formData.get('consigneeId'),
-                gst_applicable=formData.get('gstApplicable'),
+                gst_exception=formData.get('gst_exception'),
                 po_sl_no=product.get('poSlNo'),
                 prod_code=product.get('prodId'),
                 prod_desc=product.get('productDesc'),
@@ -284,6 +287,7 @@ def get_customer_details(request):
                'contact_name_2': result.contact_name_2,
                'contact_phone_2': result.contact_phone_2,
                'contact_email_2': result.contact_email_2,
+               'gst_exception': result.gst_exception,
             })
          else:
             return JsonResponse({'error': 'cust_id parameter is missing'}, status=400)
@@ -335,6 +339,7 @@ def add_product_details(request):
                    pack_size=data.get('Pack_Size'),
                    currency=data.get('Currency'),
                    price=data.get('Price'),
+                   hsn_code=data.get("hsn_code"),
                 )
             
             # Ensure the connection is closed
@@ -363,7 +368,8 @@ def get_product_details(request):
                 "spec_id": result.spec_id,
                 "pack_size": result.pack_size,
                 "currency": result.currency,
-                "price": result.price
+                "price": result.price, 
+                "hsn_code": result.hsn_code,
             })
          else:
             return JsonResponse({'error': 'prod_id parameter is missing'}, status=400)
@@ -407,7 +413,7 @@ def invoice_processing(request):
     cust_id = data['formData2'].get('customerId')
     new_cons_id = data['formData2'].get('newConsigneeName')
     contact_name = data['formData2'].get('contactName')
-    gst_applicable = data['formData2'].get('gstApplicable')
+    gst_exception = data['formData2'].get('gstException')
     freight_charges = data['formData2'].get('freightCharges')
     insurance_charges = data['formData2'].get('insuranceCharges')
     contact_nums = CustomerMaster.objects.filter(cust_id=cust_id).values().first()
@@ -431,8 +437,8 @@ def invoice_processing(request):
     # data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no)
     data_dict_inw = list(data_inw.values()) 
     df_inw = pd.DataFrame(data_dict_inw)
-    if gst_applicable is None:
-        gst_applicable = df_inw.iloc[0].get('gst_applicable', gst_applicable)
+    if gst_exception is None:
+        gst_exception = df_inw.iloc[0].get('gst_exception', gst_exception)
 
     print("fetching data from CPO successful")
     # print(df_inw.to_dict())
@@ -462,7 +468,7 @@ def invoice_processing(request):
             'qty_sent': 1,
             'delivery_date': '',
             'po_validity': '',
-            'gst_applicable': '',
+            'gst_exception': '',
         }
         
         po_sl_numbers.append('')
@@ -500,7 +506,7 @@ def invoice_processing(request):
             'qty_sent': 1,
             'delivery_date': '',
             'po_validity': '',
-            'gst_applicable': '',
+            'gst_exception': '',
         }
         
         po_sl_numbers.append('')
@@ -620,7 +626,16 @@ def invoice_processing(request):
     
     # print("df_inw: ", df_inw["gst_applicable"])
     # if df_inw["gst_applicable"] != "false" or df_inw["gst_applicable"] == "": 
-    if gst_applicable:
+    if gst_exception:
+        if int(state_code) == 29:
+            df_inw["cgst_price"] = 0.0
+            df_inw["sgst_price"] = 0.0
+            df_inw["igst_price"] = 0.0
+        else:
+            df_inw["cgst_price"] = 0.0
+            df_inw["sgst_price"] = 0.0
+            df_inw["igst_price"] = 0.0
+    else:
         if int(state_code) == 29:
             df_inw["cgst_price"] = cgst_r * (df_inw["taxable_amt"].astype(float))
             df_inw["sgst_price"] = sgst_r * (df_inw["taxable_amt"].astype(float))
@@ -629,15 +644,6 @@ def invoice_processing(request):
             df_inw["cgst_price"] = 0.0
             df_inw["sgst_price"] = 0.0
             df_inw["igst_price"] = igst_r * (df_inw["taxable_amt"].astype(float))
-    else:
-        if int(state_code) == 29:
-            df_inw["cgst_price"] = 0.0
-            df_inw["sgst_price"] = 0.0
-            df_inw["igst_price"] = 0.0
-        else:
-            df_inw["cgst_price"] = 0.0
-            df_inw["sgst_price"] = 0.0
-            df_inw["igst_price"] = 0.0
 
     print("successfully calculated gst")
 
@@ -907,8 +913,8 @@ def get_state_data(request):
 def get_customer_data(request):
     try:
         print('entered')
-        state_data = CustomerMaster.objects.all().values().order_by('cust_id')
-        return JsonResponse({"success": True, "customerData": list(state_data)})
+        customer_data = CustomerMaster.objects.all().values().order_by('cust_id')
+        return JsonResponse({"success": True, "customerData": list(customer_data)})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
     
@@ -930,6 +936,122 @@ def get_product_data(request):
         return JsonResponse({"success": True, "products": list(product_data)})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
+
+@csrf_exempt
+def invoice_report(request):
+    if request.method == 'POST':
+        try:  
+            data = json.loads(request.body)
+            start_date_str = data.get('start_date')
+            end_date_str = data.get('end_date')
+
+            start_datetime = datetime.strptime(start_date_str, "%d-%m-%Y")
+            end_datetime = datetime.strptime(end_date_str, "%d-%m-%Y")
+            print("start_datetime: ", start_datetime)
+            start_date = start_datetime.date()
+            end_date = end_datetime.date()
+
+            result = OtwDc.objects.filter(gcn_date__range=(start_date, end_date)).select_related('cust_id').values(
+                'gcn_no', 'gcn_date', 'qty_delivered', 'taxable_amt', 'cgst_price', 'sgst_price', 'igst_price',
+                'cust_id__cust_name', 'cust_id__cust_gst_id',
+                ).order_by('gcn_date')
+ 
+            print("results_query:", str(result.query))
+
+            df = pd.DataFrame(result, columns=['gcn_no', 'gcn_date', 'qty_delivered', 'taxable_amt', 'cgst_price', 'sgst_price', 'igst_price', 'cust_id__cust_name', 'cust_id__cust_gst_id'])
+            df = df[['cust_id__cust_name', 'cust_id__cust_gst_id', 'gcn_no', 'gcn_date', 'qty_delivered', 'taxable_amt', 'cgst_price', 'sgst_price', 'igst_price']]
+            
+            print("entered")
+            
+            df.insert(0, 'Sl No', range(1, len(df) + 1))
+            df['HSN/SSC'] = 9988
+            df = df.rename(columns={
+                'gcn_no': 'Invoice Number',
+                'gcn_date': 'Invoice Date',
+                'qty_delivered': 'Quantity',
+                'taxable_amt': 'Ass.Value',
+                'cgst_price': 'CGST Price (9%)',
+                'sgst_price': 'SGST Price (9%)',
+                'igst_price': 'IGST Price (18%)',
+                'cust_id__cust_name': 'Customer Name',
+                'cust_id__cust_gst_id': 'Customer GST Num',
+            })
+            df1 = df[['Customer Name', 'Customer GST Num']].copy()
+
+
+            grouped = df.groupby(['Invoice Number', 'Invoice Date']).agg({
+                'Quantity': 'sum',
+                'Ass.Value': 'sum',
+                'CGST Price (9%)': 'sum',
+                'SGST Price (9%)': 'sum',
+                'IGST Price (18%)': 'sum'
+            }).reset_index()
+
+            df1 = df[['Invoice Number', 'Customer Name', 'Customer GST Num']].drop_duplicates()
+            df1['HSN/SSC'] = 9988
+
+            combined_df = pd.merge(df1, grouped, on='Invoice Number', how='left')
+            combined_df['Sl No'] = range(1, len(combined_df) + 1)
+
+            total_taxable_amt = grouped['Ass.Value'].sum()
+            total_cgst_price = grouped['CGST Price (9%)'].sum()
+            total_sgst_price = grouped['SGST Price (9%)'].sum()
+            total_igst_price = grouped['IGST Price (18%)'].sum()
+            combined_df['Invoice Date'] = pd.to_datetime(combined_df['Invoice Date'], errors='coerce').dt.date
+            combined_df['Invoice Date'] = pd.to_datetime(combined_df['Invoice Date'], format='%Y-%m-%d').dt.strftime('%d-%m-%Y')
+            combined_df['Invoice Date'] = combined_df['Invoice Date'].astype(str)
+
+            total_row = pd.DataFrame({
+                'Sl No': 'Total',
+                'Customer Name': '',
+                'Customer GST Num': '',
+                'Invoice Date': '',
+                'Invoice Number': '',
+                'Quantity': '',
+                'Ass.Value': total_taxable_amt,
+                'CGST Price (9%)': total_cgst_price,
+                'SGST Price (9%)': total_sgst_price,
+                'IGST Price (18%)': total_igst_price,
+                'HSN/SSC': '',
+                'Round Off': '',
+            }, index=[0])
+
+            combined_df = pd.concat([combined_df, total_row], ignore_index=True)
+
+            combined_df['HSN/SSC'] = combined_df['HSN/SSC'].iloc[:-1].where(combined_df['Sl No'] != len(combined_df), 9988)
+            combined_df['Invoice Value'] = combined_df['Ass.Value'] + combined_df['IGST Price (18%)'] + combined_df['CGST Price (9%)'] + combined_df['SGST Price (9%)']
+            combined_df['Invoice Value'] = pd.to_numeric(combined_df['Invoice Value']).round()
+
+            combined_df['Round Off'] = combined_df.apply(
+                lambda row: float(row['Invoice Value']) - (
+                    float(row['Ass.Value']) +
+                    float(row['IGST Price (18%)']) +
+                    float(row['CGST Price (9%)']) +
+                    float(row['SGST Price (9%)'])
+                ) if row['Sl No'] != 'Total' else None,
+                axis=1
+            )
+            print("combined_df: ", combined_df.to_dict())
+            combined_df[['Ass.Value', 'IGST Price (18%)', 'CGST Price (9%)', 'SGST Price (9%)', 'Invoice Value', 'Round Off']] = combined_df[['Ass.Value', 'IGST Price (18%)', 'CGST Price (9%)', 'SGST Price (9%)', 'Invoice Value', 'Round Off']].apply(lambda x: x.map('{:.2f}'.format))
+
+            combined_df.loc[combined_df['Sl No'] == 'Total', ['Round Off', 'HSN/SSC']] = ''
+            column_order = ['Sl No', 'Customer Name', 'Customer GST Num', 'Invoice Number', 'Invoice Date', 'Quantity',
+                            'Ass.Value', 'IGST Price (18%)', 'CGST Price (9%)', 'SGST Price (9%)', 'Invoice Value', 'Round Off', 'HSN/SSC']
+            combined_df = combined_df[column_order]
+            print("df")
+
+            # Save the DataFrame to Excel file
+            with pd.ExcelWriter('invoiceReports.xlsx', engine='xlsxwriter') as excel_writer:
+                combined_df.to_excel(excel_writer, index=False)
+
+            json_data = combined_df.to_json(orient='records')
+            print(json_data, "json data")
+
+            return JsonResponse(json.loads(json_data), safe=False)
+
+        except Exception as e:
+            print(e)
+            return JsonResponse({'error': 'invalid data'}, status=400)
     
 
 @api_view(['POST'])
