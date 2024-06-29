@@ -428,6 +428,7 @@ def invoice_processing(request):
         gst_exception = data['formData2'].get('gstException')
         freight_charges = data['formData2'].get('freightCharges')
         insurance_charges = data['formData2'].get('insuranceCharges')
+        other_charges = data['formData2'].get('otherCharges')
     except KeyError as e:
         return JsonResponse({"error": f"Missing key: {e}"}, status=400)
 
@@ -457,8 +458,8 @@ def invoice_processing(request):
 
     try:
         # print(po_no)
-        # data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no)
-        data_inw = CustomerPurchaseOrder.objects.all()
+        data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no)
+        # data_inw = CustomerPurchaseOrder.objects.all()
         print(data_inw)
         # data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
     except Exception as e:
@@ -524,10 +525,10 @@ def invoice_processing(request):
             'omat': '',
             'pack_size': '',
             'quantity': 1,
-            'unit_price': 30.0,
+            'unit_price': insurance_charges,
             'uom': 'No',
             'hsn_sac': '9971',
-            'total_price': 30.0,
+            'total_price': insurance_charges,
             'qty_balance': 1,
             'qty_sent': 1,
             'delivery_date': None,
@@ -538,6 +539,41 @@ def invoice_processing(request):
         po_sl_numbers.append('')
         qty_tobe_del.append(1)
         hsn.append('9971')
+        batch.append('')
+        coc.append('')
+        index_to_insert = len(df_inw)
+        df_inw.loc[index_to_insert] = new_row
+
+    if other_charges:
+        new_row = {
+            'slno': '',
+            'pono': '',
+            'podate': None,
+            'quote_id': '',
+            'quote_date': None,
+            'customer_id': '',
+            'consignee_id': '',
+            'po_sl_no': '',
+            'prod_code': '',
+            'prod_desc': 'Other Charges',
+            'additional_desc': '',
+            'omat': '',
+            'pack_size': '',
+            'quantity': 1,
+            'unit_price': other_charges,
+            'uom': 'No',
+            'hsn_sac': '9971',
+            'total_price': other_charges,
+            'qty_balance': 1,
+            'qty_sent': 1,
+            'delivery_date': None,
+            'po_validity': None,
+            'gst_exception': '',
+        }
+
+        po_sl_numbers.append('')
+        qty_tobe_del.append(1)
+        hsn.append('')
         batch.append('')
         coc.append('')
         index_to_insert = len(df_inw)
@@ -610,7 +646,7 @@ def invoice_processing(request):
         return JsonResponse({"error": "GST Rates not found"}, status=404)
 
     df_inw["taxable_amt"] = df_inw["qty_tobe_del"].astype(float) * df_inw["unit_price"].astype(float)
-
+    
     if gst_exception:
         if int(state_code) == 29:
             df_inw["cgst_price"] = 0.0
@@ -638,12 +674,15 @@ def invoice_processing(request):
     df_inw["qty_balance"] = df_inw["qty_balance"].astype(float) - df_inw["qty_tobe_del"].astype(float)
 
     skip_index = []
-    if freight_charges or insurance_charges:
+    if freight_charges or insurance_charges or other_charges:
         i = 0
         if freight_charges:
             i += 1
             skip_index.append(len(df_inw) - i)
         if insurance_charges:
+            i += 1
+            skip_index.append(len(df_inw) - i)
+        if other_charges:
             i += 1
             skip_index.append(len(df_inw) - i)
 
