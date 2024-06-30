@@ -203,12 +203,12 @@ class GstStateCode(models.Model):
 
 
 class OtwDc(models.Model):
-    sl_no = models.AutoField(primary_key=True)
+    sl_no = models.AutoField(primary_key=True)  # The composite primary key (sl_no, cust_id) found, that is not supported. The first column is selected.
     gcn_no = models.CharField(max_length=20, blank=True, null=True)
     gcn_date = models.DateField(blank=True, null=True)
     po_no = models.CharField(max_length=15, blank=True, null=True)
     po_date = models.DateField(blank=True, null=True)
-    cust = models.ForeignKey(CustomerMaster, models.DO_NOTHING, blank=True, null=True)
+    cust = models.ForeignKey(CustomerMaster, models.DO_NOTHING)
     consignee_id = models.CharField(max_length=10, blank=True, null=True)
     prod_id = models.CharField(max_length=15, blank=True, null=True)
     po_sl_no = models.CharField(max_length=5, blank=True, null=True)
@@ -217,11 +217,11 @@ class OtwDc(models.Model):
     omat = models.CharField(max_length=50, blank=True, null=True)
     qty_delivered = models.TextField(blank=True, null=True)
     pack_size = models.TextField(blank=True, null=True)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
-    taxable_amt = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
-    cgst_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
-    sgst_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
-    igst_price = models.DecimalField(max_digits=10, decimal_places=5, blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    unit_price = models.TextField(blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    taxable_amt = models.TextField(blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    cgst_price = models.TextField(blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    sgst_price = models.TextField(blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
+    igst_price = models.TextField(blank=True, null=True)  # max_digits and decimal_places have been guessed, as this database handles decimal fields as float
     hsn_sac = models.CharField(max_length=10, blank=True, null=True)
     batch = models.CharField(max_length=10, blank=True, null=True)
     coc = models.CharField(max_length=10, blank=True, null=True)
