@@ -933,8 +933,9 @@ def invoice_report(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            start_date_str = data.get('start_date')
-            end_date_str = data.get('end_date')
+            print(data)
+            start_date_str = data.get('startDate')
+            end_date_str = data.get('endDate')
 
             start_datetime = datetime.strptime(start_date_str, "%d-%m-%Y")
             end_datetime = datetime.strptime(end_date_str, "%d-%m-%Y")
