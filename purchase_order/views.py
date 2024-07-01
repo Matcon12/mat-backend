@@ -159,18 +159,6 @@ def submit_form(request):
 
 def get_data_purchase_order(request):
     if request.method == 'GET':
-    # try:
-    #   cust_id = request.GET.get('cust_id')
-    #   po_no = request.GET.get('po_no')
-    #   po_sl_no = request.GET.get('po_sl_no')
-    #   if cust_id and po_no and po_sl_no:        
-    #     data = list(CustomerPurchaseOrder.objects.filter(customer_id=cust_id, pono=po_no, po_sl_no=po_sl_no).values())
-    #     return JsonResponse(data, safe=False)
-    #   else:
-    #     return JsonResponse({'error': 'parameters are missing'}, status=400)
-    # except ObjectDoesNotExist:
-    #     return JsonResponse({'error': 'data not found'}, status=400)
-
         try:
             po_no = request.GET.get('pono')
             data = CustomerPurchaseOrder.objects.filter(pono=po_no).first()
@@ -437,7 +425,7 @@ def invoice_processing(request):
         other_charges = data['formData2'].get('otherCharges')
     except KeyError as e:
         return JsonResponse({"error": f"Missing key: {e}"}, status=400)
-
+    
     try:
         contact_nums = CustomerMaster.objects.filter(cust_id=cust_id).values().first()
         if not contact_nums:
@@ -461,13 +449,9 @@ def invoice_processing(request):
             coc.append(item['coc'])
     except KeyError as e:
         return JsonResponse({"error": f"Missing key in items: {e}"}, status=400)
-
+    
     try:
-        # print(po_no)
-        data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no)
-        # data_inw = CustomerPurchaseOrder.objects.all()
-        print(data_inw)
-        # data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
+        data_inw = CustomerPurchaseOrder.objects.filter(pono=po_no, po_sl_no__in=po_sl_numbers)
     except Exception as e:
         return JsonResponse({"error": e}, status=404)
     
@@ -622,6 +606,7 @@ def invoice_processing(request):
     df_inw['qty_tobe_del'] = df_inw['po_sl_no'].map(qty_dict)
 
     for index, row in df_inw.iterrows():
+        print(index, row)
         qty_tobe_del = row['qty_tobe_del']
         qty_balance = row['qty_balance']
         quantity = row['quantity']
@@ -701,7 +686,7 @@ def invoice_processing(request):
             max_slno = OtwDc.objects.aggregate(Max('sl_no'))['sl_no__max']
             new_slno = max_slno + 1 if max_slno else 1
 
-            print("row ", index, ": \n", row)
+            # print("row ", index, ": \n", row)
             OtwDc_instance = OtwDc(
                 sl_no=new_slno,
                 gcn_no=row.get('gcn_no', ''),
@@ -725,6 +710,8 @@ def invoice_processing(request):
                 hsn_sac=hsn_value,
                 batch=batch_value,
                 coc=coc_value,
+                contact_name=contact_name,
+                contact_number=contact
             )
             OtwDc_instance.save()
         except KeyError as e:

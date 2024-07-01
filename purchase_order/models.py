@@ -33,7 +33,7 @@ class CustomerMaster(models.Model):
 
 class CustomerPurchaseOrder(models.Model):
     slno = models.AutoField(primary_key=True)  # The composite primary key (slno, pono, customer_id, po_sl_no) found, that is not supported. The first column is selected.
-    pono = models.CharField(max_length=20)
+    pono = models.CharField(max_length=50)
     podate = models.DateField(blank=True, null=True)
     quote_id = models.TextField(blank=True, null=True)
     quote_date = models.DateField(blank=True, null=True)
